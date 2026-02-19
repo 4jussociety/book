@@ -1,17 +1,18 @@
 export type Profile = {
     id: string
-    email: string
-    name: string
+    email?: string
+    name?: string
     full_name: string
     role: string // 'staff' | 'admin' | 'therapist'
     color_code?: string
     system_id: string | null
-    created_at: string
+    created_at?: string
     message_template?: string
     avatar_url?: string
     organization_name?: string
     contact_number?: string
     is_owner?: boolean // 클라이언트 상태용 (DB 컬럼 아님)
+    incentive_percentage?: number // 0~100
 }
 
 export type Patient = {
@@ -46,6 +47,7 @@ export type Appointment = {
     version: number
     system_id: string | null
     created_at: string
+    price?: number // 예상 결제 금액 (원)
     // Joins
     patient?: Patient
     therapist?: Profile

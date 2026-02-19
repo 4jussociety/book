@@ -3,11 +3,12 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AuthContext } from './AuthContext'
 import type { GuestStatus } from './AuthContext'
+import type { Profile } from '@/types/db'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [user, setUser] = useState<User | null>(null)
-    const [profile, setProfile] = useState<any>(null)
+    const [profile, setProfile] = useState<Profile | null>(null)
     const [guestStatus, setGuestStatus] = useState<GuestStatus>(null)
     const [loading, setLoading] = useState(true)
 
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (profileData) {
                 setProfile({ ...profileData, is_owner: isOwner })
             } else if (userEmail?.endsWith('@thept.co.kr')) { // Fallback profile case
-                setProfile((prev: any) => ({ ...prev, is_owner: true })) // Assuming admin fallback is owner-like
+                setProfile((prev: Profile | null) => prev ? { ...prev, is_owner: true } : prev) // Assuming admin fallback is owner-like
             }
 
         } catch (error) {

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { Appointment, Patient, Profile } from '@/types/db'
-import { endOfDay, startOfWeek, addDays, formatISO } from 'date-fns'
+import { endOfDay, startOfWeek, addDays, formatISO, startOfMonth, endOfMonth, endOfWeek } from 'date-fns'
 
 export async function getAppointments(date: Date) {
     // 주간 뷰: 선택된 날짜가 포함된 한 주(일~토)의 모든 예약을 가져옵니다.
@@ -20,6 +20,28 @@ export async function getAppointments(date: Date) {
 
     if (error) throw error
     return data as Appointment[]
+    if (error) throw error
+    return data as Appointment[]
+}
+
+export async function getMonthlyAppointments(date: Date) {
+    // 월간 뷰: 선택된 날짜가 포함된 달의 모든 예약을 가져옵니다.
+    // 앞뒤로 1주일 정도 여유를 두어 달력의 이전/다음 달 날짜도 커버
+    const start = startOfWeek(startOfMonth(date), { weekStartsOn: 0 })
+    const end = endOfWeek(endOfMonth(date), { weekStartsOn: 0 })
+
+    const { data, error } = await supabase
+        .from('appointments')
+        .select(`
+            id,
+            start_time,
+            event_type
+        `)
+        .gte('start_time', formatISO(start))
+        .lte('start_time', formatISO(end))
+
+    if (error) throw error
+    return data as Partial<Appointment>[]
 }
 
 export async function createAppointment(appointment: Partial<Appointment>) {
@@ -123,4 +145,16 @@ export async function getProfiles(systemId?: string) {
     if (profileError) throw profileError
 
     return profiles as Profile[]
+}
+
+export async function updateProfile(id: string, updates: Partial<Profile>) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+    if (error) throw error
+    return data as Profile
 }

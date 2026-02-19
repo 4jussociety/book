@@ -1,7 +1,5 @@
-import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { getAppointments, createAppointment, getPatients, getProfiles, updateAppointment, deleteAppointment } from './api'
+import { getAppointments, createAppointment, getPatients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments } from './api'
 import { createPatient } from '@/features/patients/api'
 
 /** 환자 목록 조회 훅 */
@@ -22,31 +20,8 @@ export function useProfiles(systemId?: string | null) {
 }
 
 
-/** 특정 날짜의 예약 목록 조회 훅 (Realtime 적용) */
+/** 특정 날짜의 예약 목록 조회 훅 (Realtime은 전역 useRealtimeAppointments에서 처리) */
 export function useAppointments(date: Date) {
-    const queryClient = useQueryClient()
-
-    useEffect(() => {
-        const channel = supabase
-            .channel('appointments-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'appointments',
-                },
-                () => {
-                    queryClient.invalidateQueries({ queryKey: ['appointments'] })
-                }
-            )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [queryClient])
-
     return useQuery({
         queryKey: ['appointments', date],
         queryFn: () => getAppointments(date),
@@ -59,7 +34,9 @@ export function useCreateAppointment() {
     return useMutation({
         mutationFn: createAppointment,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['appointments'] })
+            // refetchQueries: Realtime이 자기 세션에 이벤트를 보내지 않으므로
+            // 본인이 변경해도 즉시 서버에서 최신 데이터를 강제 재조회
+            queryClient.refetchQueries({ queryKey: ['appointments'] })
         },
     })
 }
@@ -71,7 +48,7 @@ export function useUpdateAppointment() {
         mutationFn: ({ id, updates }: { id: string; updates: Partial<import('@/types/db').Appointment> }) =>
             updateAppointment(id, updates),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['appointments'] })
+            queryClient.refetchQueries({ queryKey: ['appointments'] })
         },
     })
 }
@@ -93,7 +70,28 @@ export function useDeleteAppointment() {
     return useMutation({
         mutationFn: (id: string) => deleteAppointment(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['appointments'] })
+            queryClient.refetchQueries({ queryKey: ['appointments'] })
         },
+    })
+}
+
+/** 프로필 업데이트 훅 */
+export function useUpdateProfile() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, updates }: { id: string; updates: Partial<import('@/types/db').Profile> }) =>
+            updateProfile(id, updates),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['profiles'] }) // 프로필 목록 갱신
+            queryClient.invalidateQueries({ queryKey: ['statistics'] }) // 통계 갱신 (인센티브 비율 변경 시 재계산 필요)
+        },
+    })
+}
+
+/** 월간 예약 목록 조회 훅 (미니 달력용) */
+export function useMonthlyAppointments(date: Date) {
+    return useQuery({
+        queryKey: ['appointments', 'monthly', date],
+        queryFn: () => getMonthlyAppointments(date),
     })
 }

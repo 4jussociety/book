@@ -1,8 +1,41 @@
+// ProfilePage: 프로필 설정 페이지
+// 기본 정보, 예약 문자 템플릿, 단가 설정, 운영시간 설정을 관리
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Loader2, Save, User, MessageSquare } from 'lucide-react'
+import { Loader2, Save, User, MessageSquare, DollarSign, Clock } from 'lucide-react'
 
+// ─── 단가 & 운영시간 localStorage 키 ─────────────────────────────────────────
+const PRICE_KEY = 'clinic_duration_prices'
+const HOURS_KEY = 'clinic_operating_hours'
+
+const DURATION_BUCKETS = [30, 40, 50, 60, 90]
+const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
+
+type DurationPrice = { durationMin: number; priceKrw: number }
+type DayHours = { open: string; close: string; closed: boolean }
+type OperatingHours = DayHours[]  // index 0=월 ~ 6=일
+
+const defaultPrices = (): DurationPrice[] =>
+    DURATION_BUCKETS.map(d => ({ durationMin: d, priceKrw: 0 }))
+
+const defaultHours = (): OperatingHours =>
+    Array.from({ length: 7 }, (_, i) => ({
+        open: '09:00', close: '18:00', closed: i >= 5  // 토/일 기본 휴무
+    }))
+
+const loadPrices = (): DurationPrice[] => {
+    try { return JSON.parse(localStorage.getItem(PRICE_KEY) || '') } catch { return defaultPrices() }
+}
+const savePrices = (p: DurationPrice[]) => localStorage.setItem(PRICE_KEY, JSON.stringify(p))
+
+const loadHours = (): OperatingHours => {
+    try { return JSON.parse(localStorage.getItem(HOURS_KEY) || '') } catch { return defaultHours() }
+}
+const saveHours = (h: OperatingHours) => localStorage.setItem(HOURS_KEY, JSON.stringify(h))
+
+// ─── 컴포넌트 ────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
     const { user, profile } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
@@ -11,15 +44,14 @@ export default function ProfilePage() {
     const [contactNumber, setContactNumber] = useState('')
     const [messageTemplate, setMessageTemplate] = useState('')
 
-    // 초기 데이터 로드
+    const [prices, setPrices] = useState<DurationPrice[]>(loadPrices)
+    const [hours, setHours] = useState<OperatingHours>(loadHours)
+
     useEffect(() => {
         if (profile) {
             setFullName(profile.full_name || '')
-            // 기존 값이 없으면(null or empty) 새로운 기본값 적용
             setOrganizationName(profile.organization_name || 'Re:무브 체형교정')
             setContactNumber(profile.contact_number || '')
-
-            // 템플릿도 없으면 새 기본값
             setMessageTemplate(profile.message_template ||
                 `[예약 안내] {환자}님
 일시: {일시}
@@ -30,7 +62,6 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         if (!user) return
-
         setIsLoading(true)
         try {
             const { error } = await supabase
@@ -43,11 +74,8 @@ export default function ProfilePage() {
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', user.id)
-
             if (error) throw error
-
             alert('프로필이 저장되었습니다.')
-            // AuthContext의 profile 갱신이 필요할 수 있음 (일반적으로 실시간 구독이나 리로드 필요)
             window.location.reload()
         } catch (error) {
             console.error('Error updating profile:', error)
@@ -55,6 +83,19 @@ export default function ProfilePage() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const handlePriceChange = (durationMin: number, value: string) => {
+        const priceKrw = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0
+        const updated = prices.map(p => p.durationMin === durationMin ? { ...p, priceKrw } : p)
+        setPrices(updated)
+        savePrices(updated)
+    }
+
+    const handleHoursChange = (dayIdx: number, field: keyof DayHours, value: string | boolean) => {
+        const updated = hours.map((h, i) => i === dayIdx ? { ...h, [field]: value } : h)
+        setHours(updated)
+        saveHours(updated)
     }
 
     if (!profile) {
@@ -65,137 +106,156 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto p-6 space-y-8">
             <header>
                 <h1 className="text-3xl font-black text-gray-900 tracking-tight">프로필 설정</h1>
-                <p className="text-gray-500 mt-2">개인 정보와 예약 문자 양식을 설정하세요.</p>
+                <p className="text-gray-500 mt-2">개인 정보, 단가, 운영시간을 설정하세요.</p>
             </header>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {/* 기본 정보 섹션 */}
-                <div className="p-6 border-b border-gray-100">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
-                            <User className="w-5 h-5" />
-                        </div>
-                        <h2 className="text-lg font-bold text-gray-900">기본 정보</h2>
-                    </div>
-
-                    <div className="space-y-4 ml-13">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                이메일
-                            </label>
-                            <input
-                                type="text"
-                                value={profile.email || user?.email || ''}
-                                disabled
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 font-medium"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                이름 (표시명)
-                            </label>
-                            <input
-                                type="text"
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                placeholder="이름을 입력하세요"
-                                className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">예약 캘린더와 안내 문자에 표시될 이름입니다.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                업체명 (장소)
-                            </label>
-                            <input
-                                type="text"
-                                value={organizationName}
-                                onChange={(e) => setOrganizationName(e.target.value)}
-                                placeholder="예: Re:무브 체형교정"
-                                className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">예약 안내 문자의 {'{장소}'} 변수에 들어갈 내용입니다.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                연락처
-                            </label>
-                            <input
-                                type="text"
-                                value={contactNumber}
-                                onChange={(e) => setContactNumber(e.target.value)}
-                                placeholder="예: 02-1234-5678"
-                                className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">예약 안내 문자의 {'{연락처}'} 변수에 들어갈 내용입니다.</p>
-                        </div>
-                    </div>
+            {/* 기본 정보 */}
+            <Section icon={<User className="w-5 h-5" />} iconBg="bg-blue-50" iconColor="text-blue-600" title="기본 정보">
+                <div className="space-y-4">
+                    <Field label="이메일">
+                        <input type="text" value={profile.email || user?.email || ''} disabled
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 font-medium" />
+                    </Field>
+                    <Field label="이름 (표시명)" hint="예약 캘린더와 안내 문자에 표시될 이름입니다.">
+                        <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+                            placeholder="이름을 입력하세요"
+                            className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                    </Field>
+                    <Field label="업체명 (장소)" hint="안내 문자의 {장소} 변수에 들어갈 내용입니다.">
+                        <input type="text" value={organizationName} onChange={e => setOrganizationName(e.target.value)}
+                            placeholder="예: Re:무브 체형교정"
+                            className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                    </Field>
+                    <Field label="연락처" hint="안내 문자의 {연락처} 변수에 들어갈 내용입니다.">
+                        <input type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)}
+                            placeholder="예: 02-1234-5678"
+                            className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                    </Field>
                 </div>
+            </Section>
 
-                {/* 예약 문자 설정 섹션 */}
-                <div className="p-6 bg-gray-50/50">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600">
-                            <MessageSquare className="w-5 h-5" />
-                        </div>
-                        <h2 className="text-lg font-bold text-gray-900">예약 안내 문자 설정</h2>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
-                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사용 가능한 변수</h3>
-                                <div className="flex gap-2 text-sm font-medium">
-                                    <code className="px-2 py-1 bg-gray-100 rounded text-gray-700">{`{환자}`}</code>
-                                    <code className="px-2 py-1 bg-gray-100 rounded text-gray-700">{`{일시}`}</code>
-                                    <code className="px-2 py-1 bg-gray-100 rounded text-gray-700">{`{장소}`}</code>
-                                    <code className="px-2 py-1 bg-gray-100 rounded text-gray-700">{`{담당자}`}</code>
-                                    <code className="px-2 py-1 bg-gray-100 rounded text-gray-700">{`{연락처}`}</code>
-                                </div>
+            {/* 단가 설정 */}
+            <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="치료 시간별 단가 설정">
+                <p className="text-xs text-gray-400 mb-4">각 치료 시간 구간의 1회당 단가를 설정합니다. (통계 매출 계산에 사용)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {prices.map(p => (
+                        <div key={p.durationMin} className="flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl">
+                            <span className="text-sm font-black text-gray-700 w-12 flex-shrink-0">{p.durationMin}분</span>
+                            <div className="flex-1 flex items-center">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={p.priceKrw > 0 ? p.priceKrw.toLocaleString() : ''}
+                                    onChange={e => handlePriceChange(p.durationMin, e.target.value)}
+                                    placeholder="0"
+                                    className="w-full text-right px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                                />
+                                <span className="ml-2 text-xs text-gray-400 font-bold flex-shrink-0">원</span>
                             </div>
+                        </div>
+                    ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">※ 단가는 브라우저에 자동 저장됩니다.</p>
+            </Section>
 
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                문자 템플릿
+            {/* 운영시간 설정 */}
+            <Section icon={<Clock className="w-5 h-5" />} iconBg="bg-amber-50" iconColor="text-amber-600" title="운영시간 설정">
+                <p className="text-xs text-gray-400 mb-4">요일별 운영 시간을 설정합니다.</p>
+                <div className="space-y-2">
+                    {hours.map((h, i) => (
+                        <div key={i} className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors ${h.closed ? 'bg-gray-50 opacity-60' : 'bg-gray-50'}`}>
+                            <span className={`text-sm font-black w-6 text-center ${i >= 5 ? 'text-red-500' : 'text-gray-700'}`}>{DAY_LABELS[i]}</span>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={!h.closed}
+                                    onChange={e => handleHoursChange(i, 'closed', !e.target.checked)}
+                                    className="w-3.5 h-3.5 accent-blue-600"
+                                />
+                                <span className="text-xs font-bold text-gray-500">운영</span>
                             </label>
-                            <textarea
-                                value={messageTemplate}
-                                onChange={(e) => setMessageTemplate(e.target.value)}
-                                rows={6}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none"
-                                placeholder="예약 안내 문자 양식을 입력하세요..."
-                            />
+                            {!h.closed ? (
+                                <div className="flex items-center gap-2 flex-1">
+                                    <input type="time" value={h.open}
+                                        onChange={e => handleHoursChange(i, 'open', e.target.value)}
+                                        className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none" />
+                                    <span className="text-gray-400 text-xs">~</span>
+                                    <input type="time" value={h.close}
+                                        onChange={e => handleHoursChange(i, 'close', e.target.value)}
+                                        className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none" />
+                                </div>
+                            ) : (
+                                <span className="text-xs text-gray-400 font-bold flex-1">휴무</span>
+                            )}
                         </div>
+                    ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">※ 운영시간은 브라우저에 자동 저장됩니다.</p>
+            </Section>
 
-                        {/* 미리보기 */}
-                        <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-2">미리보기</span>
-                            <pre className="text-sm text-indigo-900 whitespace-pre-wrap font-sans">
-                                {messageTemplate
-                                    .replace('{환자}', '김철수')
-                                    .replace('{일시}', '2024년 3월 15일(금) 14:00')
-                                    .replace('{장소}', organizationName || 'Re:무브 체형교정')
-                                    .replace('{담당자}', fullName || '홍길동')
-                                    .replace('{연락처}', contactNumber || '02-123-4567')
-                                }
-                            </pre>
-                        </div>
+            {/* 예약 문자 설정 */}
+            <Section icon={<MessageSquare className="w-5 h-5" />} iconBg="bg-indigo-50" iconColor="text-indigo-600" title="예약 안내 문자 설정">
+                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사용 가능한 변수</h3>
+                    <div className="flex flex-wrap gap-2 text-sm font-medium">
+                        {['{환자}', '{일시}', '{장소}', '{담당자}', '{연락처}'].map(v => (
+                            <code key={v} className="px-2 py-1 bg-gray-100 rounded text-gray-700 text-xs">{v}</code>
+                        ))}
                     </div>
                 </div>
-            </div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">문자 템플릿</label>
+                <textarea value={messageTemplate} onChange={e => setMessageTemplate(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none"
+                    placeholder="예약 안내 문자 양식을 입력하세요..." />
+                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100 mt-3">
+                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-2">미리보기</span>
+                    <pre className="text-sm text-indigo-900 whitespace-pre-wrap font-sans">
+                        {messageTemplate
+                            .replace('{환자}', '김철수')
+                            .replace('{일시}', '2024년 3월 15일(금) 14:00')
+                            .replace('{장소}', organizationName || 'Re:무브 체형교정')
+                            .replace('{담당자}', fullName || '홍길동')
+                            .replace('{연락처}', contactNumber || '02-123-4567')
+                        }
+                    </pre>
+                </div>
+            </Section>
 
             <div className="flex justify-end">
-                <button
-                    onClick={handleSave}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 active:scale-95"
-                >
+                <button onClick={handleSave} disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 active:scale-95">
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     <span>변경사항 저장</span>
                 </button>
             </div>
+        </div>
+    )
+}
+
+// ─── 헬퍼 컴포넌트 ───────────────────────────────────────────────────────────
+function Section({ icon, iconBg, iconColor, title, children }: {
+    icon: React.ReactNode; iconBg: string; iconColor: string; title: string; children: React.ReactNode
+}) {
+    return (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${iconBg} rounded-full flex items-center justify-center ${iconColor}`}>{icon}</div>
+                    <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+                </div>
+            </div>
+            <div className="p-6">{children}</div>
+        </div>
+    )
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">{label}</label>
+            {children}
+            {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
         </div>
     )
 }

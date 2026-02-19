@@ -63,7 +63,10 @@ export function DraggableAppointmentContent({
     }
 
     const config = appointment.event_type === 'BLOCK' ? statusConfig.BLOCK : (statusConfig[effectiveStatus] || statusConfig.PENDING)
-    const isSmall = differenceInMinutes(new Date(appointment.end_time), new Date(appointment.start_time)) <= 20
+
+    // 노쇼나 취소 상태이거나, 시간이 매우 짧은 경우 '작은 카드' 모드로 표시
+    const isInactiveStatus = appointment.status === 'NOSHOW' || appointment.status === 'CANCELLED'
+    const isSmall = isInactiveStatus || differenceInMinutes(new Date(appointment.end_time), new Date(appointment.start_time)) <= 20
 
     return (
         <div

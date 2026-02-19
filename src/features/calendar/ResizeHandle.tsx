@@ -69,8 +69,8 @@ export function ResizeHandle({ position, onResizeStart, onResize, onResizeEnd }:
         <div
             onPointerDown={handlePointerDown}
             className={clsx(
-                "absolute inset-x-0 h-5 z-[60] cursor-row-resize transition-all group/resize flex items-center justify-center",
-                position === 'top' ? "-top-2.5" : "-bottom-2.5",
+                "absolute inset-x-0 h-2 z-[60] cursor-row-resize transition-all group/resize flex items-center justify-center",
+                position === 'top' ? "-top-1" : "-bottom-1",
                 isDragging && "bg-blue-500/20"
             )}
             title="드래그하여 시간 조절"

@@ -19,6 +19,7 @@ const appointmentSchema = z.object({
     memo: z.string().optional(),
     event_type: z.enum(['APPOINTMENT', 'BLOCK']),
     block_title: z.string().optional(),
+    price: z.string().optional(), // 콤마 포함 문자열
 })
 
 type AppointmentForm = z.infer<typeof appointmentSchema>
@@ -44,8 +45,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
 
-
-
     const {
         register,
         handleSubmit,
@@ -56,7 +55,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     } = useForm<AppointmentForm>({
         resolver: zodResolver(appointmentSchema),
         defaultValues: {
-            event_type: 'APPOINTMENT'
+            event_type: 'APPOINTMENT',
+            price: ''
         }
     })
 
@@ -65,17 +65,20 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     useEffect(() => {
         if (isOpen) {
             if (editingAppointment) {
+                // ... (existing logic)
                 setStep('DETAIL_FORM')
                 setSelectedPatient(editingAppointment.patient || null)
                 setValue('event_type', editingAppointment.event_type)
                 setValue('block_title', editingAppointment.block_title || '')
                 setValue('memo', editingAppointment.note || '')
                 setValue('therapist_id', editingAppointment.therapist_id)
+                setValue('price', editingAppointment.price ? editingAppointment.price.toLocaleString() : '')
 
                 const start = new Date(editingAppointment.start_time)
                 const end = new Date(editingAppointment.end_time)
+                // ... (snap logic)
 
-                // Snap to 10 minutes just in case
+                // (Existing date/time logic...)
                 const snapMins = (date: Date) => {
                     const m = date.getMinutes()
                     const snappedM = Math.round(m / 10) * 10
@@ -100,18 +103,19 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     event_type: initialData ? 'APPOINTMENT' : 'APPOINTMENT',
                     block_title: '',
                     memo: '',
+                    price: '',
                 })
 
                 if (initialData) {
+                    // ... (existing initialData logic)
                     setValue('date', initialData.date)
                     setValue('therapist_id', initialData.therapist_id || myProfile?.id || '')
-
+                    // ... (time logic)
                     if (initialData.end_time) {
                         setValue('start_time', initialData.start_time)
                         setValue('end_time', initialData.end_time)
                     } else {
                         const [h, m] = initialData.start_time.split(':').map(Number)
-                        // Snap current minute if needed
                         const snappedM = Math.round(m / 10) * 10
                         setValue('start_time', `${h.toString().padStart(2, '0')}:${snappedM.toString().padStart(2, '0')} `)
 
@@ -121,12 +125,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     }
                 }
             }
-
-
         }
     }, [isOpen, initialData, editingAppointment, setValue, reset, myProfile])
-
-
 
     const onSubmit = async (data: AppointmentForm) => {
         if (!myProfile?.system_id) {
@@ -137,6 +137,9 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         try {
             const startDateTime = parseKSTDateTime(data.date, data.start_time)
             const endDateTime = parseKSTDateTime(data.date, data.end_time)
+
+            // 콤마 제거 후 숫자로 변환
+            const priceVal = data.price ? parseInt(data.price.replace(/,/g, ''), 10) : 0
 
             if (editingAppointment) {
                 await updateMutation.mutateAsync({
@@ -149,7 +152,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         end_time: endDateTime.toISOString(),
                         note: data.memo,
                         block_title: data.block_title,
-                        version: editingAppointment.version
+                        version: editingAppointment.version,
+                        price: priceVal,
                     }
                 })
             } else {
@@ -162,7 +166,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     status: 'PENDING',
                     note: data.memo,
                     block_title: data.block_title,
-                    system_id: myProfile?.system_id
+                    system_id: myProfile?.system_id,
+                    price: priceVal,
                 })
             }
             onClose()
@@ -360,8 +365,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
                             {/* Row 2: Date & Time */}
                             <div>
-                                <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">예약 일시</label>
-                                <div className="grid grid-cols-5 gap-2">
+                                <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">예약 일시 & 금액</label>
+                                <div className="grid grid-cols-5 gap-2 mb-2">
                                     <div className="col-span-2">
                                         <span className="block text-[9px] text-gray-400 font-bold mb-0.5 ml-1">날짜</span>
                                         <input type="date" {...register('date')} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs h-[42px]" />
@@ -431,6 +436,29 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                         </div>
                                     </div>
                                 </div>
+                                {eventType === 'APPOINTMENT' && (
+                                    <div>
+                                        <span className="block text-[9px] text-gray-400 font-bold mb-0.5 ml-1">예상 결제 금액</span>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                {...register('price')}
+                                                placeholder="0"
+                                                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] text-right pr-8"
+                                                onChange={(e) => {
+                                                    // 숫자만 입력받고 콤마 포맷팅
+                                                    const val = e.target.value.replace(/[^0-9]/g, '')
+                                                    if (val) {
+                                                        setValue('price', parseInt(val).toLocaleString())
+                                                    } else {
+                                                        setValue('price', '')
+                                                    }
+                                                }}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">원</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Row 3: Memo */}

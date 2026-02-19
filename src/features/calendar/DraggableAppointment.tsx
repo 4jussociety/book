@@ -37,7 +37,7 @@ export function DraggableAppointment({ appointment, style, onClick, onResizeStar
     const animatedStyle = {
         ...style,
         transform: CSS.Translate.toString(transform),
-        zIndex: transform ? 100 : 10,
+        zIndex: transform ? 100 : (style?.zIndex ?? 10),
         opacity: isDragging ? 0 : 1, // 드래그 중에는 원본 숨김 (DragOverlay가 대신 표시)
     }
 

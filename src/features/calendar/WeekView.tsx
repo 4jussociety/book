@@ -4,7 +4,8 @@ import 'react-day-picker/style.css' // Ensure styles are available
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, differenceInMinutes, addMinutes } from 'date-fns'
 import { getNow, getStartOfWeekKST, addDaysKST, isSameDayKST, formatKST } from '@/lib/dateUtils'
-import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles } from './useCalendar'
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments } from './useCalendar'
+import { getDisplayHourRange } from '../../lib/useOperatingHours'
 import { useAutoCompleteAppointments } from './useAutoCompleteAppointments'
 import { ChevronLeft, ChevronRight, Plus, MessageSquare } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -19,9 +20,8 @@ import type { Appointment } from '@/types/db'
 import { useAuth } from '@/features/auth/AuthContext'
 
 // --- Constants ---
-const START_HOUR = 6        // 캘린더 시작 시간 06:00
-const END_HOUR = 24         // 캘린더 종료 시간 24:00
-const TOTAL_HOURS = END_HOUR - START_HOUR  // 총 18시간
+const { startHour: START_HOUR, endHour: END_HOUR } = getDisplayHourRange()  // 운영시간 설정 연동
+const TOTAL_HOURS = END_HOUR - START_HOUR
 const PX_PER_HOUR = 80      // 시간당 높이 (픽셀)
 const PX_PER_MIN = PX_PER_HOUR / 60
 const SNAP_MINUTES = 10     // 10분 단위 스냅
@@ -86,9 +86,18 @@ export default function WeekView() {
     const { data: profiles } = useProfiles(profile?.system_id)
     const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([])
 
+    const [miniCalendarMonth, setMiniCalendarMonth] = useState(currentDate)
+
     const { data: appointments, isLoading } = useAppointments(currentDate)
+    const { data: monthlyAppointments } = useMonthlyAppointments(miniCalendarMonth)
+
     useAutoCompleteAppointments(appointments)
     const updateMutation = useUpdateAppointment()
+
+    // currentDate가 변경되면 미니 캘린더의 기준 월도 업데이트
+    useEffect(() => {
+        setMiniCalendarMonth(currentDate)
+    }, [currentDate])
 
     useEffect(() => {
         if (profiles && selectedTherapistIds.length === 0) {
@@ -145,7 +154,14 @@ export default function WeekView() {
 
         const rect = e.currentTarget.getBoundingClientRect()
         const offsetY = e.clientY - rect.top
-        const anchorMinutes = pxToMinutes(offsetY)
+
+        // 박스 중앙이 마우스 커서에 오도록 오프셋 조정 (높이의 절반만큼 위로 이동)
+        // 호버 가이드와 동일한 로직 적용
+        const halfHeight = (MIN_DURATION * PX_PER_MIN) / 2
+        const anchorMinutes = Math.max(
+            START_HOUR * 60,
+            pxToMinutes(offsetY - halfHeight)
+        )
 
         setDraft({
             therapistId,
@@ -387,36 +403,46 @@ export default function WeekView() {
                         locale={ko}
                         showOutsideDays
                         fixedWeeks
+                        onMonthChange={setMiniCalendarMonth}
+                        components={{
+                            Chevron: ({ orientation }) => {
+                                if (orientation === 'left') return <ChevronLeft className="w-4 h-4" />
+                                if (orientation === 'right') return <ChevronRight className="w-4 h-4" />
+                                return <></>
+                            }
+                        }}
                         modifiers={{
-                            booked: (date) => appointments?.some(app => isSameDayKST(new Date(app.start_time), date)) ?? false
+                            booked: (date) => monthlyAppointments?.some(app =>
+                                isSameDayKST(new Date(app.start_time!), date) &&
+                                app.event_type === 'APPOINTMENT'
+                            ) ?? false
                         }}
                         modifiersClassNames={{
-                            booked: 'relative after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-blue-400 after:rounded-full after:opacity-70'
+                            booked: 'relative after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-blue-600 after:rounded-full after:opacity-80'
                         }}
                         formatters={{
                             formatCaption: (date) => format(date, 'yyyy년 M월', { locale: ko }),
                         }}
                         classNames={{
-                            root: 'w-full',
+                            root: 'w-full relative',
                             months: 'flex flex-col',
-                            month: 'space-y-4',
-                            caption: 'flex justify-center pt-2 relative items-center mb-4',
-                            caption_label: 'text-base font-black text-gray-800 tracking-tight',
-                            nav: 'space-x-1 flex items-center absolute right-0',
-                            nav_button: 'h-6 w-6 bg-transparent hover:bg-gray-50 p-0.5 rounded-md transition-colors text-gray-400 hover:text-gray-900',
-                            nav_button_previous: 'absolute left-0',
-                            nav_button_next: 'absolute right-0',
-                            table: 'w-full border-collapse space-y-1',
-                            head_row: 'flex justify-center mb-2 gap-1',
-                            head_cell: 'text-gray-400 w-8 font-medium text-[0.75rem] uppercase tracking-wider',
-                            row: 'flex w-full mt-1 justify-center gap-1',
-                            cell: 'text-center text-sm p-0 relative focus-within:relative focus-within:z-20',
-                            day: 'h-8 w-8 p-0 font-medium text-gray-600 aria-selected:opacity-100 hover:bg-gray-50 rounded-full transition-all text-xs',
-                            day_selected: 'bg-gray-900 !text-white hover:!bg-gray-800 font-bold shadow-md shadow-gray-200 after:bg-white',
-                            day_today: 'text-blue-600 font-black bg-blue-50',
-                            day_outside: 'text-gray-300 opacity-30',
-                            day_disabled: 'text-gray-300 opacity-30',
-                            day_hidden: 'invisible',
+                            month: 'space-y-2',
+                            month_caption: 'flex justify-center pt-1 items-center mb-4 h-8',
+                            caption_label: 'text-sm font-black text-gray-800 tracking-tight',
+                            nav: 'absolute top-1 left-0 w-full flex justify-between px-1 items-center h-8 z-10 pointer-events-none',
+                            button_previous: 'pointer-events-auto h-7 w-7 bg-transparent hover:bg-blue-50 p-0 rounded-full transition-colors text-gray-400 hover:text-blue-600 flex items-center justify-center',
+                            button_next: 'pointer-events-auto h-7 w-7 bg-transparent hover:bg-blue-50 p-0 rounded-full transition-colors text-gray-400 hover:text-blue-600 flex items-center justify-center',
+                            month_grid: 'w-full border-collapse',
+                            weekdays: 'flex justify-center mb-2 gap-1',
+                            weekday: 'text-gray-400 w-7 font-medium text-[0.75rem] uppercase tracking-wider',
+                            week: 'flex w-full mt-1 justify-center gap-1',
+                            day: 'text-center text-sm p-0 relative focus-within:relative focus-within:z-20',
+                            day_button: 'h-7 w-7 p-0 font-medium text-gray-600 aria-selected:opacity-100 hover:bg-gray-50 rounded-full transition-all text-xs',
+                            selected: '!bg-blue-50 !text-blue-600 !rounded-full ring-1 ring-blue-200 font-bold', // 선택된 날짜: 연한 파랑
+                            today: '!bg-blue-400 !text-white !rounded-full font-black hover:!bg-blue-500', // 오늘 날짜: 파랑
+                            outside: 'text-gray-300 opacity-30',
+                            disabled: 'text-gray-300 opacity-30',
+                            hidden: 'invisible',
                         }}
                     />
                 </div>
@@ -560,14 +586,14 @@ export default function WeekView() {
                                         >
                                             <span className={clsx(
                                                 "text-[11px] font-bold",
-                                                isToday ? 'text-blue-600' : 'text-gray-400'
+                                                isToday ? 'text-blue-500' : 'text-gray-400'
                                             )}>
                                                 {formatKST(day, 'EEE')}
                                             </span>
                                             <span className={clsx(
                                                 "text-xl font-black leading-none w-9 h-9 flex items-center justify-center",
                                                 isToday
-                                                    ? 'bg-blue-600 text-white rounded-full'
+                                                    ? 'bg-blue-400 text-white rounded-full'
                                                     : 'text-gray-800'
                                             )}>
                                                 {formatKST(day, 'd')}
@@ -601,7 +627,12 @@ export default function WeekView() {
                                                                 if (!draftRef.current) {
                                                                     const rect = e.currentTarget.getBoundingClientRect()
                                                                     const offsetY = e.clientY - rect.top
-                                                                    const snappedMinutes = pxToMinutes(offsetY)
+                                                                    // 박스 중앙이 마우스 커서에 오도록 오프셋 조정 (높이의 절반만큼 위로 이동)
+                                                                    const halfHeight = (MIN_DURATION * PX_PER_MIN) / 2
+                                                                    const snappedMinutes = Math.max(
+                                                                        START_HOUR * 60,
+                                                                        pxToMinutes(offsetY - halfHeight)
+                                                                    )
                                                                     setHoverCell({ dayISO, therapistId: therapist.id, minutes: snappedMinutes })
                                                                 }
                                                             }}
@@ -646,10 +677,10 @@ export default function WeekView() {
                                                                             }}
                                                                         >
                                                                             {/* Ghost preview */}
-                                                                            <div className="absolute inset-0 bg-blue-500/5 border border-blue-300/30 border-dashed rounded-lg" />
+                                                                            <div className="absolute inset-0 bg-blue-400/5 border border-blue-300/30 border-dashed rounded-lg" />
                                                                             {/* + Button */}
                                                                             <button
-                                                                                className="pointer-events-auto w-7 h-7 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                                                                                className="pointer-events-auto w-7 h-7 bg-blue-400 hover:bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
                                                                                 onMouseDown={e => e.stopPropagation()}
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation()
@@ -677,13 +708,13 @@ export default function WeekView() {
                                                             {/* Ghost Selection Box */}
                                                             {ghost && (
                                                                 <div
-                                                                    className="absolute inset-x-1 bg-blue-500/15 border-2 border-blue-500 border-dashed rounded-xl z-50 pointer-events-none flex items-center justify-center overflow-hidden backdrop-blur-[1px]"
+                                                                    className="absolute inset-x-1 bg-blue-400/15 border-2 border-blue-400 border-dashed rounded-xl z-50 pointer-events-none flex items-center justify-center overflow-hidden backdrop-blur-[1px]"
                                                                     style={{
                                                                         top: `${ghost.top}px`,
                                                                         height: `${ghost.height}px`,
                                                                     }}
                                                                 >
-                                                                    <div className="bg-blue-600 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
+                                                                    <div className="bg-blue-400 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
                                                                         {ghost.durationMins}분
                                                                     </div>
                                                                 </div>
@@ -716,10 +747,12 @@ export default function WeekView() {
                                                                         (startH_KST - START_HOUR) * PX_PER_HOUR +
                                                                         (startM_KST / 60) * PX_PER_HOUR
 
-                                                                    let adjustedHeight =
-                                                                        ((endTime.getTime() - startTime.getTime()) /
-                                                                            (1000 * 60 * 60)) *
-                                                                        PX_PER_HOUR
+                                                                    const isInactiveStatus = apt.status === 'NOSHOW' || apt.status === 'CANCELLED'
+
+                                                                    // 상태에 따른 높이 조정 (노쇼/취소는 작게)
+                                                                    let adjustedHeight = isInactiveStatus
+                                                                        ? 26 // px (약간의 여유를 둔 최소 높이)
+                                                                        : ((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)) * PX_PER_HOUR
 
                                                                     if (isResizing) {
                                                                         const deltaPx = resizeDelta * PX_PER_MIN
@@ -752,6 +785,11 @@ export default function WeekView() {
                                                                                 height: `${adjustedHeight}px`,
                                                                                 position: 'absolute',
                                                                                 transition: isResizing ? 'none' : undefined,
+                                                                                // 노쇼/취소: 우측 정렬 + 박스 크기 축소 (50%)
+                                                                                width: isInactiveStatus ? '50%' : '100%',
+                                                                                right: isInactiveStatus ? 0 : 'auto',
+                                                                                left: isInactiveStatus ? 'auto' : 0,
+                                                                                zIndex: isInactiveStatus ? 25 : 20, // 노쇼/취소가 일반 예약(20)보다 위에 오게 함 (헤더 30보다는 아래)
                                                                             }}
                                                                         />
                                                                     )
