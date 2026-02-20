@@ -143,8 +143,8 @@ export default function PatientList() {
                                     {/* 성별 */}
                                     <td className="px-5 py-3">
                                         <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${patient.gender === 'M' || patient.gender === 'MALE'
-                                                ? 'bg-sky-50 text-sky-600'
-                                                : 'bg-pink-50 text-pink-500'
+                                            ? 'bg-sky-50 text-sky-600'
+                                            : 'bg-pink-50 text-pink-500'
                                             }`}>
                                             {patient.gender === 'M' || patient.gender === 'MALE' ? '남' : '여'}
                                         </span>
@@ -188,7 +188,7 @@ export default function PatientList() {
                                     </td>
                                     {/* 관리 버튼 */}
                                     <td className="px-5 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => handleBookAppointment(patient)}
                                                 className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-colors"

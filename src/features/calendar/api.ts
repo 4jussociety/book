@@ -24,6 +24,21 @@ export async function getAppointments(date: Date) {
     return data as Appointment[]
 }
 
+export async function getAppointmentsByPatient(patientId: string) {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select(`
+            *,
+            patient:patients!patient_id(*),
+            therapist:profiles!therapist_id(*)
+        `)
+        .eq('patient_id', patientId)
+        .order('start_time', { ascending: false })
+
+    if (error) throw error
+    return data as Appointment[]
+}
+
 export async function getMonthlyAppointments(date: Date) {
     // 월간 뷰: 선택된 날짜가 포함된 달의 모든 예약을 가져옵니다.
     // 앞뒤로 1주일 정도 여유를 두어 달력의 이전/다음 달 날짜도 커버
@@ -35,7 +50,9 @@ export async function getMonthlyAppointments(date: Date) {
         .select(`
             id,
             start_time,
-            event_type
+            event_type,
+            status,
+            therapist_id
         `)
         .gte('start_time', formatISO(start))
         .lte('start_time', formatISO(end))
@@ -157,4 +174,16 @@ export async function updateProfile(id: string, updates: Partial<Profile>) {
 
     if (error) throw error
     return data as Profile
+}
+
+export async function updatePatient(id: string, updates: Partial<Patient>) {
+    const { data, error } = await supabase
+        .from('patients')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+    if (error) throw error
+    return data as Patient
 }

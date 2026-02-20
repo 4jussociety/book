@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAppointments, createAppointment, getPatients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments } from './api'
+import { getAppointments, createAppointment, getPatients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments, updatePatient, getAppointmentsByPatient } from './api'
 import { createPatient } from '@/features/patients/api'
 
 /** 환자 목록 조회 훅 */
@@ -7,6 +7,22 @@ export function usePatients() {
     return useQuery({
         queryKey: ['patients'],
         queryFn: () => getPatients(),
+    })
+}
+// ... (omitted) ...
+
+/** 월간 예약 목록 조회 훅 (미니 달력용) */
+
+
+/** 환자 정보 수정 훅 */
+export function useUpdatePatient() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, updates }: { id: string; updates: Partial<import('@/types/db').Patient> }) =>
+            updatePatient(id, updates),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['patients'] })
+        },
     })
 }
 
@@ -93,5 +109,14 @@ export function useMonthlyAppointments(date: Date) {
     return useQuery({
         queryKey: ['appointments', 'monthly', date],
         queryFn: () => getMonthlyAppointments(date),
+    })
+}
+
+/** 특정 환자의 모든 예약 목록 조회 훅 (메모 히스토리용) */
+export function usePatientAppointments(patientId: string | undefined | null) {
+    return useQuery({
+        queryKey: ['appointments', 'patient', patientId],
+        queryFn: () => getAppointmentsByPatient(patientId!),
+        enabled: !!patientId,
     })
 }

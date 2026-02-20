@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { formatKST, parseKSTDateTime } from '@/lib/dateUtils'
-import { usePatients, useProfiles, useCreateAppointment, useUpdateAppointment } from './useCalendar'
+import { usePatients, useProfiles, useCreateAppointment, useUpdateAppointment, usePatientAppointments } from './useCalendar'
 import PatientForm from '@/features/patients/PatientForm'
 import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -128,6 +128,9 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         }
     }, [isOpen, initialData, editingAppointment, setValue, reset, myProfile])
 
+
+    const { data: patientHistory } = usePatientAppointments(selectedPatient?.id)
+
     const onSubmit = async (data: AppointmentForm) => {
         if (!myProfile?.system_id) {
             alert('시스템 정보가 없습니다. 관리자에게 문의하여 소속 시스템을 설정해주세요.')
@@ -141,6 +144,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
             // 콤마 제거 후 숫자로 변환
             const priceVal = data.price ? parseInt(data.price.replace(/,/g, ''), 10) : 0
 
+
+
             if (editingAppointment) {
                 await updateMutation.mutateAsync({
                     id: editingAppointment.id,
@@ -150,7 +155,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         therapist_id: data.therapist_id,
                         start_time: startDateTime.toISOString(),
                         end_time: endDateTime.toISOString(),
-                        note: data.memo,
+                        note: data.memo, // 예약 메모에도 저장 (선택 사항)
                         block_title: data.block_title,
                         version: editingAppointment.version,
                         price: priceVal,
@@ -164,7 +169,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
                     status: 'PENDING',
-                    note: data.memo,
+                    note: data.memo, // 예약 메모에도 저장
                     block_title: data.block_title,
                     system_id: myProfile?.system_id,
                     price: priceVal,
@@ -265,7 +270,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="font-black text-gray-900 text-sm truncate">{p.name} <span className="text-gray-400 text-[10px] font-bold">#{p.patient_no}</span></div>
-                                        <div className="text-[10px] text-gray-500 font-medium truncate">{p.phone || '연락처 없음'} · {p.birth_date ? `${new Date().getFullYear() - parseInt(p.birth_date.substring(0, 4))}세` : '나이 정보 없음'}</div>
+                                        <div className="text-[10px] text-gray-500 font-medium truncate">{p.birth_date ? `${new Date().getFullYear() - parseInt(p.birth_date.substring(0, 4))}세` : '나이 정보 없음'} · {p.phone || '연락처 없음'}</div>
                                     </div>
                                 </button>
                             ))}
@@ -461,14 +466,34 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                 )}
                             </div>
 
-                            {/* Row 3: Memo */}
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">메모</label>
+                            {/* Row 3: Memo (History & New) */}
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-gray-500 ml-1">메모 (환자 히스토리)</label>
+
+                                {/* 1. History View (Appointment Notes) */}
+                                {selectedPatient && patientHistory && (
+                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-[120px] overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap mb-2 space-y-2 scrollbar-thin scrollbar-thumb-amber-200">
+                                        <div className="text-[9px] text-amber-500 font-bold mb-1 sticky top-0 bg-amber-50 pb-1 border-b border-amber-100">이전 기록</div>
+                                        {patientHistory.filter(app => app.note).map(app => (
+                                            <div key={app.id} className="border-b border-amber-100 last:border-0 pb-1 last:pb-0">
+                                                <span className="text-[10px] text-amber-600 font-bold block mb-0.5">
+                                                    [{formatKST(new Date(app.start_time), 'yyyy-MM-dd HH:mm')}]
+                                                </span>
+                                                {app.note}
+                                            </div>
+                                        ))}
+                                        {patientHistory.filter(app => app.note).length === 0 && (
+                                            <div className="text-gray-400 text-center py-2">기록 없음</div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 2. New Memo Input */}
                                 <textarea
                                     {...register('memo')}
                                     rows={3}
-                                    placeholder="세부 내용 입력..."
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs resize-none"
+                                    placeholder={selectedPatient ? "새로운 메모를 입력하세요 (저장 시 날짜와 함께 상단에 추가됩니다)" : "메모 입력..."}
+                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs resize-none transition-all placeholder:font-medium"
                                 />
                             </div>
 
@@ -479,7 +504,23 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         </div>
 
                         <div className="p-6 pt-0 flex gap-3">
-                            <button type="button" onClick={onClose} className="flex-1 py-3 text-gray-400 font-black hover:bg-gray-100 rounded-xl transition-all text-xs">취소</button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (editingAppointment) {
+                                        onClose()
+                                    } else {
+                                        if (eventType === 'BLOCK') {
+                                            setStep('TYPE_SELECT')
+                                        } else {
+                                            setStep('PATIENT_SEARCH')
+                                        }
+                                    }
+                                }}
+                                className="flex-1 py-3 text-gray-400 font-black hover:bg-gray-100 rounded-xl transition-all text-xs"
+                            >
+                                {editingAppointment ? '취소' : '이전'}
+                            </button>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}

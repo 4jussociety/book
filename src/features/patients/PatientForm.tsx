@@ -18,7 +18,7 @@ const patientSchema = z.object({
     gender: z.enum(['M', 'F']),
     birth_date: z.string().optional(),
     phone: z.string().optional(),
-    memo: z.string().optional(),
+
 })
 
 type PatientFormInputs = z.infer<typeof patientSchema>
@@ -49,7 +49,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
             patient_no: '',
             birth_date: '',
             phone: '',
-            memo: '',
+
         }
     })
 
@@ -65,7 +65,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
                 gender: normalizedGender,
                 birth_date: initialData.birth_date ? initialData.birth_date.substring(0, 4) : '',
                 phone: initialData.phone || '',
-                memo: initialData.memo || '',
+
             })
         } else {
             reset({
@@ -74,7 +74,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
                 gender: 'M',
                 birth_date: '',
                 phone: '',
-                memo: '',
+
             })
         }
     }, [initialData, reset, defaultName])
@@ -89,12 +89,14 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
 
 
             // system_id 주입 (RLS 정책 준수)
+
             const payload = {
                 ...data,
                 birth_date: birthDateValue,
                 phone: data.phone || null,
                 patient_no: data.patient_no ? parseInt(data.patient_no) : undefined,
                 system_id: profile?.system_id,
+
             }
 
             if (initialData) {
@@ -193,16 +195,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
                 </div>
             </div>
 
-            {/* Row 3: 메모 */}
-            <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">메모</label>
-                <textarea
-                    {...register('memo')}
-                    rows={3}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-sm resize-none"
-                    placeholder="특이사항을 입력해주세요"
-                />
-            </div>
+
 
             {/* Buttons */}
             <div className="flex justify-end gap-2 pt-2">

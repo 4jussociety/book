@@ -1,39 +1,25 @@
 // ProfilePage: 프로필 설정 페이지
-// 기본 정보, 예약 문자 템플릿, 단가 설정, 운영시간 설정을 관리
+// 기본 정보, 예약 문자 템플릿, 단가 설정을 관리
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Loader2, Save, User, MessageSquare, DollarSign, Clock } from 'lucide-react'
+import { Loader2, Save, User, MessageSquare, DollarSign } from 'lucide-react'
 
-// ─── 단가 & 운영시간 localStorage 키 ─────────────────────────────────────────
+// ─── 단가 localStorage 키 ─────────────────────────────────────────
 const PRICE_KEY = 'clinic_duration_prices'
-const HOURS_KEY = 'clinic_operating_hours'
 
 const DURATION_BUCKETS = [30, 40, 50, 60, 90]
-const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 
 type DurationPrice = { durationMin: number; priceKrw: number }
-type DayHours = { open: string; close: string; closed: boolean }
-type OperatingHours = DayHours[]  // index 0=월 ~ 6=일
 
 const defaultPrices = (): DurationPrice[] =>
     DURATION_BUCKETS.map(d => ({ durationMin: d, priceKrw: 0 }))
-
-const defaultHours = (): OperatingHours =>
-    Array.from({ length: 7 }, (_, i) => ({
-        open: '09:00', close: '18:00', closed: i >= 5  // 토/일 기본 휴무
-    }))
 
 const loadPrices = (): DurationPrice[] => {
     try { return JSON.parse(localStorage.getItem(PRICE_KEY) || '') } catch { return defaultPrices() }
 }
 const savePrices = (p: DurationPrice[]) => localStorage.setItem(PRICE_KEY, JSON.stringify(p))
-
-const loadHours = (): OperatingHours => {
-    try { return JSON.parse(localStorage.getItem(HOURS_KEY) || '') } catch { return defaultHours() }
-}
-const saveHours = (h: OperatingHours) => localStorage.setItem(HOURS_KEY, JSON.stringify(h))
 
 // ─── 컴포넌트 ────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
@@ -45,7 +31,6 @@ export default function ProfilePage() {
     const [messageTemplate, setMessageTemplate] = useState('')
 
     const [prices, setPrices] = useState<DurationPrice[]>(loadPrices)
-    const [hours, setHours] = useState<OperatingHours>(loadHours)
 
     useEffect(() => {
         if (profile) {
@@ -92,12 +77,6 @@ export default function ProfilePage() {
         savePrices(updated)
     }
 
-    const handleHoursChange = (dayIdx: number, field: keyof DayHours, value: string | boolean) => {
-        const updated = hours.map((h, i) => i === dayIdx ? { ...h, [field]: value } : h)
-        setHours(updated)
-        saveHours(updated)
-    }
-
     if (!profile) {
         return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>
     }
@@ -106,7 +85,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto p-6 space-y-8">
             <header>
                 <h1 className="text-3xl font-black text-gray-900 tracking-tight">프로필 설정</h1>
-                <p className="text-gray-500 mt-2">개인 정보, 단가, 운영시간을 설정하세요.</p>
+                <p className="text-gray-500 mt-2">개인 정보, 단가를 설정하세요.</p>
             </header>
 
             {/* 기본 정보 */}
@@ -158,40 +137,6 @@ export default function ProfilePage() {
                 <p className="text-[11px] text-gray-400 mt-3">※ 단가는 브라우저에 자동 저장됩니다.</p>
             </Section>
 
-            {/* 운영시간 설정 */}
-            <Section icon={<Clock className="w-5 h-5" />} iconBg="bg-amber-50" iconColor="text-amber-600" title="운영시간 설정">
-                <p className="text-xs text-gray-400 mb-4">요일별 운영 시간을 설정합니다.</p>
-                <div className="space-y-2">
-                    {hours.map((h, i) => (
-                        <div key={i} className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors ${h.closed ? 'bg-gray-50 opacity-60' : 'bg-gray-50'}`}>
-                            <span className={`text-sm font-black w-6 text-center ${i >= 5 ? 'text-red-500' : 'text-gray-700'}`}>{DAY_LABELS[i]}</span>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={!h.closed}
-                                    onChange={e => handleHoursChange(i, 'closed', !e.target.checked)}
-                                    className="w-3.5 h-3.5 accent-blue-600"
-                                />
-                                <span className="text-xs font-bold text-gray-500">운영</span>
-                            </label>
-                            {!h.closed ? (
-                                <div className="flex items-center gap-2 flex-1">
-                                    <input type="time" value={h.open}
-                                        onChange={e => handleHoursChange(i, 'open', e.target.value)}
-                                        className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none" />
-                                    <span className="text-gray-400 text-xs">~</span>
-                                    <input type="time" value={h.close}
-                                        onChange={e => handleHoursChange(i, 'close', e.target.value)}
-                                        className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none" />
-                                </div>
-                            ) : (
-                                <span className="text-xs text-gray-400 font-bold flex-1">휴무</span>
-                            )}
-                        </div>
-                    ))}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-3">※ 운영시간은 브라우저에 자동 저장됩니다.</p>
-            </Section>
 
             {/* 예약 문자 설정 */}
             <Section icon={<MessageSquare className="w-5 h-5" />} iconBg="bg-indigo-50" iconColor="text-indigo-600" title="예약 안내 문자 설정">

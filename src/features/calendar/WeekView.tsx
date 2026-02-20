@@ -4,7 +4,7 @@ import 'react-day-picker/style.css' // Ensure styles are available
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, differenceInMinutes, addMinutes } from 'date-fns'
 import { getNow, getStartOfWeekKST, addDaysKST, isSameDayKST, formatKST } from '@/lib/dateUtils'
-import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments } from './useCalendar'
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments, usePatientAppointments } from './useCalendar'
 import { getDisplayHourRange } from '../../lib/useOperatingHours'
 import { useAutoCompleteAppointments } from './useAutoCompleteAppointments'
 import { ChevronLeft, ChevronRight, Plus, MessageSquare } from 'lucide-react'
@@ -55,6 +55,8 @@ export default function WeekView() {
         date: string; start_time: string; end_time?: string; therapist_id?: string
     } | null>(null)
     const [now, setNow] = useState(getNow())
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const hasScrolledToNow = useRef(false)
 
     // 드래그 선택 상태
     const [draft, setDraft] = useState<DraftSelection | null>(null)
@@ -93,6 +95,7 @@ export default function WeekView() {
 
     useAutoCompleteAppointments(appointments)
     const updateMutation = useUpdateAppointment()
+    const { data: patientHistory } = usePatientAppointments(selectedAppointment?.patient?.id)
 
     // currentDate가 변경되면 미니 캘린더의 기준 월도 업데이트
     useEffect(() => {
@@ -231,6 +234,22 @@ export default function WeekView() {
         window.addEventListener('mouseup', handleMouseUp)
         return () => window.removeEventListener('mouseup', handleMouseUp)
     }, [handleMouseUp])
+
+    // 페이지 진입 시 현재 시간 위치로 스크롤
+    useEffect(() => {
+        if (hasScrolledToNow.current) return
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        const nowH = parseInt(formatKST(now, 'H'))
+        const nowM = parseInt(formatKST(now, 'm'))
+        if (nowH >= START_HOUR && nowH < END_HOUR) {
+            const nowPx = 96 + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
+            const containerHeight = container.clientHeight
+            container.scrollTop = nowPx - containerHeight / 2
+            hasScrolledToNow.current = true
+        }
+    }, [now])
 
     // DnD (이동)
     const handleDragEnd = (event: DragEndEvent) => {
@@ -414,7 +433,10 @@ export default function WeekView() {
                         modifiers={{
                             booked: (date) => monthlyAppointments?.some(app =>
                                 isSameDayKST(new Date(app.start_time!), date) &&
-                                app.event_type === 'APPOINTMENT'
+                                app.event_type === 'APPOINTMENT' &&
+                                app.status !== 'CANCELLED' &&
+                                app.status !== 'NOSHOW' &&
+                                (selectedTherapistIds.length === 0 || (app.therapist_id && selectedTherapistIds.includes(app.therapist_id)))
                             ) ?? false
                         }}
                         modifiersClassNames={{
@@ -527,7 +549,7 @@ export default function WeekView() {
                     }}
                     onDragCancel={() => setActiveAppointment(null)}
                 >
-                    <div className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
+                    <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
                         <div className="w-20 flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-30 pt-[96px]">
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
@@ -551,23 +573,6 @@ export default function WeekView() {
 
                         {/* Day Columns */}
                         <div className="flex flex-1 min-w-max relative">
-                            {/* Now Line (KST) - Spans entire week if today is in view */}
-                            {weekDays.some(d => isSameDayKST(d, now)) && (() => {
-                                const nowH = parseInt(formatKST(now, 'H'))
-                                return nowH >= START_HOUR && nowH < END_HOUR
-                            })() && (
-                                    <div
-                                        className="absolute left-0 right-0 z-40 pointer-events-none"
-                                        style={{
-                                            // 64px (DayHeader h-16) + 32px (SubHeader) = 96px offset
-                                            top: `${96 + (parseInt(formatKST(now, 'H')) - START_HOUR) * PX_PER_HOUR + (parseInt(formatKST(now, 'm')) / 60) * PX_PER_HOUR}px`,
-                                        }}
-                                    >
-                                        <div className="h-0.5 bg-red-600 w-full relative shadow-[0_0_4px_rgba(220,38,38,0.5)]">
-                                            <div className="absolute -left-1.5 -top-1 w-2.5 h-2.5 bg-red-600 rounded-full ring-2 ring-white" />
-                                        </div>
-                                    </div>
-                                )}
                             {weekDays.map(day => {
                                 const isToday = isSameDayKST(day, now)
                                 const dayISO = formatKST(day, 'yyyy-MM-dd')
@@ -576,7 +581,7 @@ export default function WeekView() {
                                     <div
                                         key={dayISO}
                                         className={clsx(
-                                            'flex flex-col border-r border-gray-200/50',
+                                            'flex flex-col border-r border-gray-200/50 relative',
                                             isToday ? 'bg-blue-50/30' : 'bg-white/50',
                                         )}
                                     >
@@ -599,6 +604,24 @@ export default function WeekView() {
                                                 {formatKST(day, 'd')}
                                             </span>
                                         </div>
+
+                                        {/* Now Line - 오늘 날짜에만 표시 */}
+                                        {isToday && (() => {
+                                            const nowH = parseInt(formatKST(now, 'H'))
+                                            const nowM = parseInt(formatKST(now, 'm'))
+                                            if (nowH < START_HOUR || nowH >= END_HOUR) return null
+                                            const topPx = 96 + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
+                                            return (
+                                                <div
+                                                    className="absolute left-0 right-0 z-40 pointer-events-none"
+                                                    style={{ top: `${topPx}px` }}
+                                                >
+                                                    <div className="h-0.5 bg-red-600 w-full relative shadow-[0_0_4px_rgba(220,38,38,0.5)]">
+                                                        <div className="absolute -left-1.5 -top-1 w-2.5 h-2.5 bg-red-600 rounded-full ring-2 ring-white" />
+                                                    </div>
+                                                </div>
+                                            )
+                                        })()}
 
                                         {/* Therapist Columns */}
                                         <div className="flex relative h-full">
@@ -680,24 +703,8 @@ export default function WeekView() {
                                                                             <div className="absolute inset-0 bg-blue-400/5 border border-blue-300/30 border-dashed rounded-lg" />
                                                                             {/* + Button */}
                                                                             <button
+                                                                                type="button"
                                                                                 className="pointer-events-auto w-7 h-7 bg-blue-400 hover:bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                                                                                onMouseDown={e => e.stopPropagation()}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation()
-                                                                                    const sH = Math.floor(hoverCell.minutes / 60)
-                                                                                    const sM = hoverCell.minutes % 60
-                                                                                    const endMins = hoverCell.minutes + MIN_DURATION
-                                                                                    const eH = Math.floor(endMins / 60)
-                                                                                    const eM = endMins % 60
-                                                                                    setModalData({
-                                                                                        date: dayISO,
-                                                                                        start_time: `${sH.toString().padStart(2, '0')}:${sM.toString().padStart(2, '0')}`,
-                                                                                        end_time: `${eH.toString().padStart(2, '0')}:${eM.toString().padStart(2, '0')}`,
-                                                                                        therapist_id: therapist.id,
-                                                                                    })
-                                                                                    setIsModalOpen(true)
-                                                                                    setHoverCell(null)
-                                                                                }}
                                                                             >
                                                                                 <Plus className="w-4 h-4" strokeWidth={3} />
                                                                             </button>
@@ -928,13 +935,28 @@ export default function WeekView() {
                                         <span className="font-bold text-gray-700">{selectedAppointment.therapist.full_name}</span>
                                     </div>
                                 )}
-                                {selectedAppointment.note && (
-                                    <div className="flex items-start gap-3 text-sm">
-                                        <span className="text-gray-400 w-16 text-right font-bold pt-0.5">메모</span>
-                                        <span className="text-gray-600 bg-gray-50 rounded-lg px-3 py-2 flex-1">{selectedAppointment.note}</span>
+
+                                {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.patient && patientHistory && (
+                                    <div className="flex flex-col gap-1 text-sm pt-2 border-t border-gray-100">
+                                        <span className="text-gray-400 font-bold text-xs">환자 메모 히스토리</span>
+                                        <div className="bg-amber-50 rounded-lg p-3 text-xs text-gray-700 max-h-[100px] overflow-y-auto whitespace-pre-wrap border border-amber-100 scrollbar-thin scrollbar-thumb-amber-200 space-y-2">
+                                            <div className="text-[9px] text-amber-500 font-bold mb-1 sticky top-0 bg-amber-50 pb-1 border-b border-amber-100">이전 기록</div>
+                                            {patientHistory.filter(app => app.note).map(app => (
+                                                <div key={app.id} className="border-b border-amber-100 last:border-0 pb-1 last:pb-0">
+                                                    <span className="text-[10px] text-amber-600 font-bold block mb-0.5">
+                                                        [{formatKST(new Date(app.start_time), 'yyyy-MM-dd HH:mm')}]
+                                                    </span>
+                                                    {app.note}
+                                                </div>
+                                            ))}
+                                            {patientHistory.filter(app => app.note).length === 0 && (
+                                                <div className="text-gray-400 text-center py-2">기록 없음</div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>
+
 
                             {/* Actions */}
                             <div className="border-t p-4 space-y-3 bg-gray-50/50">
@@ -1074,6 +1096,6 @@ export default function WeekView() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }
