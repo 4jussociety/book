@@ -35,12 +35,12 @@ export default function ProfilePage() {
     useEffect(() => {
         if (profile) {
             setFullName(profile.full_name || '')
-            setOrganizationName(profile.organization_name || 'Re:무브 체형교정')
+            setOrganizationName(profile.organization_name || '')
             setContactNumber(profile.contact_number || '')
             setMessageTemplate(profile.message_template ||
                 `[예약 안내] {환자}님
 일시: {일시}
-장소: Re:무브 체형교정
+장소: {장소}
 담당: {담당자} 선생님`)
         }
     }, [profile])
@@ -82,10 +82,10 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-6 space-y-8">
+        <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
             <header>
-                <h1 className="text-3xl font-black text-gray-900 tracking-tight">프로필 설정</h1>
-                <p className="text-gray-500 mt-2">개인 정보, 단가를 설정하세요.</p>
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">프로필 설정</h1>
+                <p className="text-gray-500 mt-1 md:mt-2 text-sm">개인 정보, 단가를 설정하세요.</p>
             </header>
 
             {/* 기본 정보 */}
@@ -184,13 +184,13 @@ function Section({ icon, iconBg, iconColor, title, children }: {
 }) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-4 md:p-6 border-b border-gray-100">
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 ${iconBg} rounded-full flex items-center justify-center ${iconColor}`}>{icon}</div>
                     <h2 className="text-lg font-bold text-gray-900">{title}</h2>
                 </div>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-4 md:p-6">{children}</div>
         </div>
     )
 }

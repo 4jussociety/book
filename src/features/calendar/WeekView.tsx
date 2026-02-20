@@ -8,6 +8,7 @@ import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfile
 import { getDisplayHourRange } from '../../lib/useOperatingHours'
 import { useAutoCompleteAppointments } from './useAutoCompleteAppointments'
 import { ChevronLeft, ChevronRight, Plus, MessageSquare } from 'lucide-react'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 import { clsx } from 'clsx'
 import AppointmentModal from './AppointmentModal'
 import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, DragOverlay } from '@dnd-kit/core'
@@ -48,6 +49,7 @@ type DraftSelection = {
 }
 
 export default function WeekView() {
+    const isMobile = useIsMobile()
     const { profile } = useAuth()
     const [currentDate, setCurrentDate] = useState(getNow())
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -410,7 +412,7 @@ export default function WeekView() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white font-sans text-gray-900">
+        <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-64px)] overflow-hidden bg-white font-sans text-gray-900">
             {/* ── SIDEBAR ── */}
             <div className="w-[280px] flex-none border-r bg-white p-4 flex flex-col gap-6 overflow-y-auto hidden lg:flex">
                 {/* Mini Calendar */}
@@ -503,18 +505,18 @@ export default function WeekView() {
             <div className="flex-1 flex flex-col min-w-0 bg-white relative">
                 {/* ── HEADER ── */}
                 <div className="flex flex-col border-b bg-white z-20">
-                    <div className="flex items-center justify-between p-4 px-6">
-                        <div className="flex items-center gap-8">
+                    <div className="flex items-center justify-between p-2 px-3 md:p-4 md:px-6">
+                        <div className="flex items-center gap-2 md:gap-8">
                             <div className="flex flex-col">
 
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 md:gap-4">
                                     <button
                                         onClick={handleToday}
-                                        className="px-4 py-1.5 text-xs font-black text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 shadow-sm"
+                                        className="px-3 py-1.5 text-xs font-black text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 shadow-sm"
                                     >
                                         오늘
                                     </button>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 md:gap-2">
                                         <div className="flex items-center gap-0.5">
                                             <button onClick={handlePrevWeek} className="p-1.5 hover:bg-gray-100 rounded-full transition-all active:scale-90 text-gray-400 hover:text-gray-900">
                                                 <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
@@ -523,14 +525,12 @@ export default function WeekView() {
                                                 <ChevronRight className="w-5 h-5" strokeWidth={2.5} />
                                             </button>
                                         </div>
-                                        <h2 className="text-2xl font-black text-gray-900 tracking-tighter ml-1">
+                                        <h2 className="text-lg md:text-2xl font-black text-gray-900 tracking-tighter ml-1">
                                             {formatKST(currentDate, 'yyyy년 M월')}
                                         </h2>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Therapist Filter removed (moved to Sidebar) */}
                         </div>
                     </div>
                 </div>
@@ -551,7 +551,7 @@ export default function WeekView() {
                 >
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
-                        <div className="w-20 flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-30 pt-[96px]">
+                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40', isMobile ? 'w-12 pt-[72px]' : 'w-20 pt-[96px]')}>
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
                                 {timeSlots.map(hour => {
                                     const period = hour < 12 ? 'AM' : 'PM'
@@ -562,8 +562,8 @@ export default function WeekView() {
                                             className="absolute w-full flex justify-center transform -translate-y-5"
                                             style={{ top: `${(hour - START_HOUR) * PX_PER_HOUR}px` }}
                                         >
-                                            <span className="text-[11px] font-bold text-gray-400 bg-white/90 px-1 rounded z-10">
-                                                {`${period} ${h}시`}
+                                            <span className="text-[10px] md:text-[11px] font-bold text-gray-400 bg-white/90 px-1 rounded z-10">
+                                                {isMobile ? `${h}${period === 'AM' ? 'am' : 'pm'}` : `${period} ${h}시`}
                                             </span>
                                         </div>
                                     )
@@ -572,7 +572,7 @@ export default function WeekView() {
                         </div>
 
                         {/* Day Columns */}
-                        <div className="flex flex-1 min-w-max relative">
+                        <div className={clsx('flex flex-1 relative', !isMobile && 'min-w-max')}>
                             {weekDays.map(day => {
                                 const isToday = isSameDayKST(day, now)
                                 const dayISO = formatKST(day, 'yyyy-MM-dd')
@@ -587,7 +587,7 @@ export default function WeekView() {
                                     >
                                         {/* Day Header */}
                                         <div
-                                            className="h-16 flex flex-col items-center justify-center border-b sticky top-0 z-30 bg-white/95 backdrop-blur-sm"
+                                            className={clsx('flex flex-col items-center justify-center border-b sticky top-0 z-30 bg-white/95 backdrop-blur-sm', isMobile ? 'h-10' : 'h-16')}
                                         >
                                             <span className={clsx(
                                                 "text-[11px] font-bold",
@@ -610,7 +610,8 @@ export default function WeekView() {
                                             const nowH = parseInt(formatKST(now, 'H'))
                                             const nowM = parseInt(formatKST(now, 'm'))
                                             if (nowH < START_HOUR || nowH >= END_HOUR) return null
-                                            const topPx = 96 + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
+                                            const headerOffset = isMobile ? 72 : 96
+                                            const topPx = headerOffset + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
                                             return (
                                                 <div
                                                     className="absolute left-0 right-0 z-40 pointer-events-none"
@@ -632,10 +633,13 @@ export default function WeekView() {
                                                 return (
                                                     <div
                                                         key={therapist.id}
-                                                        className="w-[120px] border-r border-gray-100 relative"
+                                                        className={clsx('border-r border-gray-100 relative', isMobile ? 'flex-1 min-w-[100px]' : 'w-[120px]')}
                                                     >
                                                         {/* Therapist sub-header */}
-                                                        <div className="h-8 flex items-center justify-center bg-white/60 border-b border-gray-100 text-[10px] font-black text-gray-400">
+                                                        <div className={clsx(
+                                                            "h-8 flex items-center justify-center bg-white/90 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-400 sticky z-20",
+                                                            isMobile ? "top-10" : "top-16"
+                                                        )}>
                                                             {therapist.full_name || therapist.name}
                                                         </div>
 
@@ -871,7 +875,7 @@ export default function WeekView() {
                                         </h3>
                                         {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.patient?.patient_no && (
                                             <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-bold">
-                                                #{selectedAppointment.patient.patient_no}
+                                                {selectedAppointment.patient.is_manual_no ? '' : '#'}{selectedAppointment.patient.patient_no}
                                             </span>
                                         )}
                                         {selectedAppointment.event_type === 'APPOINTMENT' && (

@@ -19,7 +19,6 @@ const appointmentSchema = z.object({
     memo: z.string().optional(),
     event_type: z.enum(['APPOINTMENT', 'BLOCK']),
     block_title: z.string().optional(),
-    price: z.string().optional(), // 콤마 포함 문자열
 })
 
 type AppointmentForm = z.infer<typeof appointmentSchema>
@@ -56,7 +55,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         resolver: zodResolver(appointmentSchema),
         defaultValues: {
             event_type: 'APPOINTMENT',
-            price: ''
         }
     })
 
@@ -72,7 +70,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 setValue('block_title', editingAppointment.block_title || '')
                 setValue('memo', editingAppointment.note || '')
                 setValue('therapist_id', editingAppointment.therapist_id)
-                setValue('price', editingAppointment.price ? editingAppointment.price.toLocaleString() : '')
 
                 const start = new Date(editingAppointment.start_time)
                 const end = new Date(editingAppointment.end_time)
@@ -103,7 +100,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     event_type: initialData ? 'APPOINTMENT' : 'APPOINTMENT',
                     block_title: '',
                     memo: '',
-                    price: '',
                 })
 
                 if (initialData) {
@@ -141,11 +137,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
             const startDateTime = parseKSTDateTime(data.date, data.start_time)
             const endDateTime = parseKSTDateTime(data.date, data.end_time)
 
-            // 콤마 제거 후 숫자로 변환
-            const priceVal = data.price ? parseInt(data.price.replace(/,/g, ''), 10) : 0
-
-
-
             if (editingAppointment) {
                 await updateMutation.mutateAsync({
                     id: editingAppointment.id,
@@ -158,7 +149,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         note: data.memo, // 예약 메모에도 저장 (선택 사항)
                         block_title: data.block_title,
                         version: editingAppointment.version,
-                        price: priceVal,
                     }
                 })
             } else {
@@ -172,7 +162,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     note: data.memo, // 예약 메모에도 저장
                     block_title: data.block_title,
                     system_id: myProfile?.system_id,
-                    price: priceVal,
                 })
             }
             onClose()
@@ -192,7 +181,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 font-sans" onClick={onClose}>
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[480px] overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[480px] max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
                 {/* Step 1: Type Select */}
                 {step === 'TYPE_SELECT' && (
                     <div className="p-6">
@@ -269,7 +258,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                         <User className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-black text-gray-900 text-sm truncate">{p.name} <span className="text-gray-400 text-[10px] font-bold">#{p.patient_no}</span></div>
+                                        <div className="font-black text-gray-900 text-sm truncate">{p.name} <span className="text-gray-400 text-[10px] font-bold">{p.is_manual_no ? '' : '#'}{p.patient_no}</span></div>
                                         <div className="text-[10px] text-gray-500 font-medium truncate">{p.birth_date ? `${new Date().getFullYear() - parseInt(p.birth_date.substring(0, 4))}세` : '나이 정보 없음'} · {p.phone || '연락처 없음'}</div>
                                     </div>
                                 </button>
@@ -324,7 +313,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-auto scrollbar-hide">
 
                             {/* Row 1: Patient/Title & Therapist */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {/* Col 1 */}
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">
@@ -339,7 +328,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 <div className="text-sm font-black text-gray-900 truncate leading-none">
                                                     {selectedPatient ? selectedPatient.name : '신규'}
                                                 </div>
-                                                {selectedPatient && <div className="text-[10px] text-gray-500 font-medium truncate">#{selectedPatient.patient_no}</div>}
+                                                {selectedPatient && <div className="text-[10px] text-gray-500 font-medium truncate">{selectedPatient.is_manual_no ? '' : '#'}{selectedPatient.patient_no}</div>}
                                             </div>
                                             {!editingAppointment && (
                                                 <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
@@ -371,8 +360,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                             {/* Row 2: Date & Time */}
                             <div>
                                 <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">예약 일시 & 금액</label>
-                                <div className="grid grid-cols-5 gap-2 mb-2">
-                                    <div className="col-span-2">
+                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-2">
+                                    <div className="col-span-3 sm:col-span-2">
                                         <span className="block text-[9px] text-gray-400 font-bold mb-0.5 ml-1">날짜</span>
                                         <input type="date" {...register('date')} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs h-[42px]" />
                                     </div>
@@ -441,29 +430,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                         </div>
                                     </div>
                                 </div>
-                                {eventType === 'APPOINTMENT' && (
-                                    <div>
-                                        <span className="block text-[9px] text-gray-400 font-bold mb-0.5 ml-1">예상 결제 금액</span>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                {...register('price')}
-                                                placeholder="0"
-                                                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] text-right pr-8"
-                                                onChange={(e) => {
-                                                    // 숫자만 입력받고 콤마 포맷팅
-                                                    const val = e.target.value.replace(/[^0-9]/g, '')
-                                                    if (val) {
-                                                        setValue('price', parseInt(val).toLocaleString())
-                                                    } else {
-                                                        setValue('price', '')
-                                                    }
-                                                }}
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">원</span>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {/* Row 3: Memo (History & New) */}

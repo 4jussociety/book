@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useProfiles, useUpdateProfile } from '../calendar/useCalendar'
 import { useAuth } from '../auth/AuthContext'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 const PRICE_KEY = 'clinic_duration_prices'
@@ -50,6 +51,7 @@ export default function StatisticsPage() {
     const { profile } = useAuth()
     const { data: profiles } = useProfiles(profile?.system_id)
     const updateProfileMutation = useUpdateProfile()
+    const isMobile = useIsMobile()
 
     const [period, setPeriod] = useState<PeriodType>('week')
     const [viewDate, setViewDate] = useState(new Date())
@@ -126,12 +128,13 @@ export default function StatisticsPage() {
 
     const { data: stats, isLoading: loading } = useQuery<StatsData>({
         // prices가 변경되면 쿼리를 재실행하여 매출을 다시 계산
-        queryKey: ['statistics', dateRange, selectedTherapistId, prices],
+        queryKey: ['statistics', dateRange, selectedTherapistId, prices, profile?.system_id],
         queryFn: async () => {
-            const data = await fetchStats(dateRange, selectedTherapistId || undefined, prices)
+            const data = await fetchStats(dateRange, selectedTherapistId || undefined, prices, profile?.system_id || undefined)
             return data
         },
         staleTime: 1000 * 60 * 5, // 5분
+        enabled: !!profile?.system_id,
     })
 
     // ─── CSV 내보내기 ──────────────────────────────────────────────────────────
@@ -200,99 +203,130 @@ export default function StatisticsPage() {
     if (!stats) return null
 
     return (
-        <div className="flex h-full overflow-hidden">
-            {/* ── 좌측 치료사 사이드바 ── */}
-            <aside className="w-44 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
-                <div className="p-4 border-b border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">치료사</p>
-                </div>
-                <div className="p-2 flex flex-col gap-1 flex-1">
-                    <button
-                        onClick={() => setSelectedTherapistId(null)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${!selectedTherapistId
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                    >
-                        <User className="w-3.5 h-3.5 flex-shrink-0" />
-                        전체
-                    </button>
-                    {profiles?.map((p: Profile) => (
-                        <div key={p.id} className="relative group/item">
+        <div className="flex flex-col md:flex-row h-full overflow-hidden">
+            {/* ── 모바일: 상단 치료사 필터 (가로 스크롤) ── */}
+            {isMobile && (
+                <div className="flex-shrink-0 bg-white border-b border-gray-100 px-3 py-2 overflow-x-auto scrollbar-hide">
+                    <div className="flex gap-1.5 min-w-max">
+                        <button
+                            onClick={() => setSelectedTherapistId(null)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${!selectedTherapistId
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600'
+                                }`}
+                        >
+                            전체
+                        </button>
+                        {profiles?.map((p: Profile) => (
                             <button
+                                key={p.id}
                                 onClick={() => setSelectedTherapistId(p.id)}
-                                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left w-full ${selectedTherapistId === p.id
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-50'
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${selectedTherapistId === p.id
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-600'
                                     }`}
                             >
-                                <User className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="truncate flex-1">{p.full_name || p.name}</span>
-                                {p.incentive_percentage != null && p.incentive_percentage > 0 && (
-                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md ${selectedTherapistId === p.id ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>
-                                        {p.incentive_percentage}%
-                                    </span>
-                                )}
+                                {p.full_name || p.name}
                             </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    setEditingIncentiveId(p.id)
-                                    setIncentiveValue(p.incentive_percentage?.toString() || '0')
-                                }}
-                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all z-10"
-                            >
-                                <Settings className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* 인센티브 설정 팝오버 (간이) */}
-                            {editingIncentiveId === p.id && (
-                                <div className="absolute left-full top-0 ml-2 bg-white p-3 rounded-xl shadow-xl border border-gray-100 w-48 z-50 animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-                                    <h4 className="text-xs font-black text-gray-900 mb-2 flex items-center gap-1">
-                                        <BadgePercent className="w-3.5 h-3.5 text-blue-600" />
-                                        인센티브 비율 설정
-                                    </h4>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <input
-                                            autoFocus
-                                            type="number"
-                                            value={incentiveValue}
-                                            onChange={e => setIncentiveValue(e.target.value)}
-                                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
-                                            placeholder="%"
-                                        />
-                                        <span className="text-xs font-bold text-gray-500">%</span>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <button
-                                            onClick={() => setEditingIncentiveId(null)}
-                                            className="flex-1 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-[10px] font-bold hover:bg-gray-100"
-                                        >
-                                            취소
-                                        </button>
-                                        <button
-                                            onClick={() => handleUpdateIncentive(p.id)}
-                                            className="flex-1 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700"
-                                        >
-                                            저장
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </aside>
+            )}
+
+            {/* ── 데스크톱: 좌측 치료사 사이드바 ── */}
+            {!isMobile && (
+                <aside className="w-44 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
+                    <div className="p-4 border-b border-gray-100">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">치료사</p>
+                    </div>
+                    <div className="p-2 flex flex-col gap-1 flex-1">
+                        <button
+                            onClick={() => setSelectedTherapistId(null)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${!selectedTherapistId
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <User className="w-3.5 h-3.5 flex-shrink-0" />
+                            전체
+                        </button>
+                        {profiles?.map((p: Profile) => (
+                            <div key={p.id} className="relative group/item">
+                                <button
+                                    onClick={() => setSelectedTherapistId(p.id)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left w-full ${selectedTherapistId === p.id
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <User className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <span className="truncate flex-1">{p.full_name || p.name}</span>
+                                    {p.incentive_percentage != null && p.incentive_percentage > 0 && (
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-md ${selectedTherapistId === p.id ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>
+                                            {p.incentive_percentage}%
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        setEditingIncentiveId(p.id)
+                                        setIncentiveValue(p.incentive_percentage?.toString() || '0')
+                                    }}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all z-10"
+                                >
+                                    <Settings className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* 인센티브 설정 팝오버 (간이) */}
+                                {editingIncentiveId === p.id && (
+                                    <div className="absolute left-full top-0 ml-2 bg-white p-3 rounded-xl shadow-xl border border-gray-100 w-48 z-50 animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                                        <h4 className="text-xs font-black text-gray-900 mb-2 flex items-center gap-1">
+                                            <BadgePercent className="w-3.5 h-3.5 text-blue-600" />
+                                            인센티브 비율 설정
+                                        </h4>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <input
+                                                autoFocus
+                                                type="number"
+                                                value={incentiveValue}
+                                                onChange={e => setIncentiveValue(e.target.value)}
+                                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
+                                                placeholder="%"
+                                            />
+                                            <span className="text-xs font-bold text-gray-500">%</span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => setEditingIncentiveId(null)}
+                                                className="flex-1 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-[10px] font-bold hover:bg-gray-100"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={() => handleUpdateIncentive(p.id)}
+                                                className="flex-1 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700"
+                                            >
+                                                저장
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </aside>
+            )}
 
             {/* ── 메인 콘텐츠 ── */}
-            <main className="flex-1 overflow-y-auto p-6 space-y-6">
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
                 {/* 헤더 */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                     <div>
-                        <h1 className="text-2xl font-black text-gray-900">통계 대시보드</h1>
+                        <h1 className="text-xl md:text-2xl font-black text-gray-900">통계 대시보드</h1>
                         <p className="text-xs text-gray-400 mt-0.5 font-medium">{periodLabel}</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <div className="flex items-center gap-2 flex-wrap">
                         {/* 기간 탭 */}
                         <div className="flex bg-gray-100 rounded-xl p-1">
                             {([

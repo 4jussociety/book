@@ -91,14 +91,14 @@ export function DraggableAppointmentContent({
                         </span>
                         {appointment.event_type === 'APPOINTMENT' && !isSmall && (
                             <span className={clsx("text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter", config.badge)}>
-                                #{appointment.patient?.patient_no || '...'}
+                                {appointment.patient?.is_manual_no ? '' : '#'}{appointment.patient?.patient_no || '...'}
                             </span>
                         )}
                     </div>
                     {appointment.visit_count && !isSmall && (
                         <div className="text-[10px] font-bold opacity-60 flex items-center gap-1">
                             <span className="w-1 h-1 rounded-full bg-current opacity-40"></span>
-                            {appointment.visit_count}회차 치료
+                            {appointment.visit_count}회차
                         </div>
                     )}
                 </div>

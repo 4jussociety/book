@@ -18,6 +18,7 @@ export type Profile = {
 export type Patient = {
     id: string
     patient_no: number
+    is_manual_no?: boolean
     name: string
     gender: 'MALE' | 'FEMALE' | 'M' | 'F'
     birth_date: string | null

@@ -95,14 +95,14 @@ END $$;
 
 -- 5. Patients Table
 CREATE TABLE IF NOT EXISTS patient_counters (
-    key TEXT PRIMARY KEY,
+    system_id UUID PRIMARY KEY REFERENCES systems(id),
     last_patient_no INT NOT NULL DEFAULT 0
 );
-INSERT INTO patient_counters (key, last_patient_no) VALUES ('default', 0) ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS patients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_no INT UNIQUE,
+    patient_no INT,
+    is_manual_no BOOLEAN DEFAULT FALSE,
     name TEXT NOT NULL,
     phone TEXT,
     gender gender,
@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS patients (
     last_appointment_at TIMESTAMP WITH TIME ZONE,
     system_id UUID REFERENCES systems(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE(system_id, patient_no)
 );
 
 -- 6. Appointments Table
@@ -134,11 +135,8 @@ CREATE TABLE IF NOT EXISTS appointments (
     version INT DEFAULT 1,
     system_id UUID REFERENCES systems(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    price INTEGER DEFAULT 0 -- Added column
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS price INTEGER DEFAULT 0;
-
 -- Realtime Setup (Replica Identity & Publication)
 -- 이것이 없으면 UPDATE 시 전체 로우 데이터가 오지 않아 필터링이 안될 수 있음
 ALTER TABLE appointments REPLICA IDENTITY FULL;
@@ -275,10 +273,11 @@ EXECUTE FUNCTION update_version_column();
 CREATE OR REPLACE FUNCTION assign_patient_no()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.patient_no IS NULL THEN
-        UPDATE patient_counters 
-        SET last_patient_no = last_patient_no + 1 
-        WHERE key = 'default'
+    IF NEW.patient_no IS NULL AND NEW.system_id IS NOT NULL THEN
+        INSERT INTO patient_counters (system_id, last_patient_no)
+        VALUES (NEW.system_id, 1)
+        ON CONFLICT (system_id) DO UPDATE
+        SET last_patient_no = patient_counters.last_patient_no + 1
         RETURNING last_patient_no INTO NEW.patient_no;
     END IF;
     RETURN NEW;
@@ -290,6 +289,27 @@ CREATE TRIGGER tr_assign_patient_no
 BEFORE INSERT ON patients
 FOR EACH ROW
 EXECUTE FUNCTION assign_patient_no();
+
+-- 3.3.1 Reset Patient Counter on Empty
+CREATE OR REPLACE FUNCTION reset_patient_counter_if_empty()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 현재 삭제된 환자의 시스템에 남은 환자가 있는지 확인
+    IF NOT EXISTS (SELECT 1 FROM patients WHERE system_id = OLD.system_id) THEN
+        -- 남은 환자가 없으면 카운터를 0으로 초기화
+        UPDATE patient_counters 
+        SET last_patient_no = 0 
+        WHERE system_id = OLD.system_id;
+    END IF;
+    RETURN OLD;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS tr_reset_patient_counter ON patients;
+CREATE TRIGGER tr_reset_patient_counter
+AFTER DELETE ON patients
+FOR EACH ROW
+EXECUTE FUNCTION reset_patient_counter_if_empty();
 
 -- 3.4 Guest Login RPC
 CREATE OR REPLACE FUNCTION login_guest(

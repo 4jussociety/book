@@ -89,12 +89,23 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
 
 
             // system_id 주입 (RLS 정책 준수)
+            let isManualNo = false
+            if (!initialData) {
+                if (data.patient_no) isManualNo = true
+            } else {
+                if (data.patient_no !== initialData.patient_no?.toString()) {
+                    isManualNo = !!data.patient_no
+                } else {
+                    isManualNo = !!initialData.is_manual_no
+                }
+            }
 
             const payload = {
                 ...data,
                 birth_date: birthDateValue,
                 phone: data.phone || null,
                 patient_no: data.patient_no ? parseInt(data.patient_no) : undefined,
+                is_manual_no: isManualNo,
                 system_id: profile?.system_id,
 
             }

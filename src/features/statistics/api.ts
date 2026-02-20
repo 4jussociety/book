@@ -24,7 +24,8 @@ export type DurationPrice = { durationMin: number; priceKrw: number }
 export const fetchStats = async (
     range: DateRange,
     therapistId?: string,
-    prices: DurationPrice[] = []
+    prices: DurationPrice[] = [],
+    systemId?: string
 ): Promise<StatsData> => {
     // 단가 맵 생성 for faster lookup
     const priceMap = new Map<number, number>()
@@ -52,6 +53,9 @@ export const fetchStats = async (
 
     if (therapistId) {
         query = query.eq('therapist_id', therapistId)
+    }
+    if (systemId) {
+        query = query.eq('system_id', systemId)
     }
 
     const { data: appointments, error } = await query

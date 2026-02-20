@@ -17,7 +17,7 @@ export default function RootLayout() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
             <GNB />
-            <main className="flex-1">
+            <main className="flex-1 pb-20 md:pb-0">
                 <Outlet />
             </main>
 

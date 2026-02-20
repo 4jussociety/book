@@ -142,14 +142,14 @@ export default function MemberManagement() {
     return (
         <div className="max-w-4xl mx-auto p-4 sm:p-8">
             {/* 헤더 */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6 md:mb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                         <Users className="w-6 h-6" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">멤버 관리</h1>
-                        <p className="text-gray-500 text-sm">시스템 입장 요청 및 멤버 권한을 관리합니다.</p>
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900">멤버 관리</h1>
+                        <p className="text-gray-500 text-xs md:text-sm hidden sm:block">시스템 입장 요청 및 멤버 권한을 관리합니다.</p>
                         {!profile?.system_id && (
                             <p className="text-red-500 text-xs font-bold mt-1">⚠️ 시스템 ID가 설정되지 않았습니다. 새로고침 해주세요.</p>
                         )}
@@ -215,8 +215,8 @@ export default function MemberManagement() {
                                 </div>
 
                                 {/* 역할 선택 + 액션 버튼 */}
-                                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 rounded-xl p-3 gap-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-xs text-gray-500 font-bold">역할 배정:</span>
                                         <button
                                             onClick={() => setSelectedRoles(prev => ({ ...prev, [req.id]: 'therapist' }))}
@@ -240,7 +240,7 @@ export default function MemberManagement() {
                                         </button>
                                     </div>
 
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 w-full sm:w-auto">
                                         <button
                                             onClick={() => handleAction(req.id, req.user_id, 'approved')}
                                             disabled={!!processingId}
@@ -275,8 +275,8 @@ export default function MemberManagement() {
                         {requests.filter(r => r.status === 'approved').length}
                     </span>
                 </h2>
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-sm">
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[600px]">
                         <thead className="bg-gray-50 text-gray-600">
                             <tr>
                                 <th className="px-6 py-4 font-bold">이름</th>
@@ -409,8 +409,8 @@ export default function MemberManagement() {
             {/* 거절된 요청 목록 (Rejected History) */}
             <section>
                 <h2 className="text-lg font-bold text-gray-800 mb-4 text-gray-400">최근 거절 내역</h2>
-                <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
-                    <table className="w-full text-left text-sm">
+                <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden opacity-75 hover:opacity-100 transition-opacity overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[500px]">
                         <thead className="bg-gray-100 text-gray-500">
                             <tr>
                                 <th className="px-6 py-4 font-bold">사용자</th>
