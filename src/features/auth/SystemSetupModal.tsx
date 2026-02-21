@@ -6,21 +6,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from './AuthContext'
 import { Loader2, PlusCircle, CheckCircle } from 'lucide-react'
 
-/** 10자리 숫자 일련번호 생성 (타임스탬프 + 랜덤 조합) */
-function generateSerialNumber(): string {
-    const now = new Date()
-    const yy = String(now.getFullYear()).slice(-2)
-    const mm = String(now.getMonth() + 1).padStart(2, '0')
-    const dd = String(now.getDate()).padStart(2, '0')
-    const rand = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
-    return `${yy}${mm}${dd}${rand}`
-}
 
 export default function SystemSetupModal() {
     const { user, refreshProfile } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [createdSerial, setCreatedSerial] = useState<string | null>(null)
+    const [isSystemCreated, setIsSystemCreated] = useState(false)
     const [isStarting, setIsStarting] = useState(false)
 
     const handleStart = async () => {
@@ -35,14 +26,14 @@ export default function SystemSetupModal() {
         setError(null)
 
         try {
-            // 중복 방지: 최대 5회 재시도
+            // 중복 방지: 최대 5회 재시도 (기존 구조 유지하되 일련번호는 일단 하드코딩 빈값 삽입)
+            // 참고: 추후 DB에서 serial_number 컬럼이 완전히 필요없어지면 insert 내용도 수정해야함
             let system = null
-            for (let attempt = 0; attempt < 5; attempt++) {
-                const serialNumber = generateSerialNumber()
+            for (let attempt = 0; attempt < 1; attempt++) {
                 const { data, error: insertError } = await supabase
                     .from('systems')
                     .insert({
-                        serial_number: serialNumber,
+                        serial_number: `sys_${Date.now()}_${Math.random().toString(36).substring(7)}`, // 더미 데이터
                         owner_id: user.id,
                     })
                     .select()
@@ -75,7 +66,7 @@ export default function SystemSetupModal() {
 
             if (profileError) throw profileError
 
-            setCreatedSerial(system.serial_number)
+            setIsSystemCreated(true)
 
             // 3초 후 자동 리프레시
             setTimeout(async () => {
@@ -91,7 +82,7 @@ export default function SystemSetupModal() {
     }
 
     // 개설 완료 화면
-    if (createdSerial) {
+    if (isSystemCreated) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
@@ -101,17 +92,9 @@ export default function SystemSetupModal() {
 
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">시스템 개설 완료!</h2>
                     <p className="text-gray-500 mb-6 leading-relaxed">
-                        아래 일련번호를 게스트에게 전달하면<br />
-                        시스템에 참여할 수 있습니다.
+                        이제부터 새로운 스케줄 관리와<br />
+                        환자 관리를 시작할 수 있습니다.
                     </p>
-
-                    <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 mb-6">
-                        <p className="text-xs text-gray-400 mb-2 font-medium">시스템 일련번호</p>
-                        <p className="text-3xl font-mono font-bold text-blue-600 tracking-[0.3em]">
-                            {createdSerial.slice(0, 5)}-{createdSerial.slice(5)}
-                        </p>
-                    </div>
-
                     <p className="text-xs text-gray-400 mb-6">
                         3초 후 자동으로 메인 페이지로 이동합니다...
                     </p>
