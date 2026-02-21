@@ -246,12 +246,13 @@ export default function WeekView() {
         const nowH = parseInt(formatKST(now, 'H'))
         const nowM = parseInt(formatKST(now, 'm'))
         if (nowH >= START_HOUR && nowH < END_HOUR) {
-            const nowPx = 96 + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
+            const headerOffset = 72
+            const nowPx = headerOffset + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
             const containerHeight = container.clientHeight
             container.scrollTop = nowPx - containerHeight / 2
             hasScrolledToNow.current = true
         }
-    }, [now])
+    }, [now, isMobile])
 
     // DnD (이동)
     const handleDragEnd = (event: DragEndEvent) => {
@@ -551,7 +552,7 @@ export default function WeekView() {
                 >
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
-                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40', isMobile ? 'w-12 pt-[72px]' : 'w-20 pt-[96px]')}>
+                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
                                 {timeSlots.map(hour => {
                                     const period = hour < 12 ? 'AM' : 'PM'
@@ -587,16 +588,16 @@ export default function WeekView() {
                                     >
                                         {/* Day Header */}
                                         <div
-                                            className={clsx('flex flex-col items-center justify-center border-b sticky top-0 z-30 bg-white/95 backdrop-blur-sm', isMobile ? 'h-10' : 'h-16')}
+                                            className="flex flex-col items-center justify-center border-b sticky top-0 z-30 bg-white/95 backdrop-blur-sm h-12"
                                         >
                                             <span className={clsx(
-                                                "text-[11px] font-bold",
+                                                "text-[10px] font-bold",
                                                 isToday ? 'text-blue-500' : 'text-gray-400'
                                             )}>
                                                 {formatKST(day, 'EEE')}
                                             </span>
                                             <span className={clsx(
-                                                "text-xl font-black leading-none w-9 h-9 flex items-center justify-center",
+                                                "text-lg font-black leading-none w-7 h-7 flex items-center justify-center mt-0.5",
                                                 isToday
                                                     ? 'bg-blue-400 text-white rounded-full'
                                                     : 'text-gray-800'
@@ -610,7 +611,7 @@ export default function WeekView() {
                                             const nowH = parseInt(formatKST(now, 'H'))
                                             const nowM = parseInt(formatKST(now, 'm'))
                                             if (nowH < START_HOUR || nowH >= END_HOUR) return null
-                                            const headerOffset = isMobile ? 72 : 96
+                                            const headerOffset = 72
                                             const topPx = headerOffset + (nowH - START_HOUR) * PX_PER_HOUR + (nowM / 60) * PX_PER_HOUR
                                             return (
                                                 <div
@@ -636,10 +637,7 @@ export default function WeekView() {
                                                         className={clsx('border-r border-gray-100 relative', isMobile ? 'flex-1 min-w-[100px]' : 'w-[120px]')}
                                                     >
                                                         {/* Therapist sub-header */}
-                                                        <div className={clsx(
-                                                            "h-8 flex items-center justify-center bg-white/90 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-400 sticky z-20",
-                                                            isMobile ? "top-10" : "top-16"
-                                                        )}>
+                                                        <div className="h-6 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-500 sticky z-20 top-12">
                                                             {therapist.full_name || therapist.name}
                                                         </div>
 
