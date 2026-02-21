@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -153,8 +153,8 @@ export default function LoginPage() {
                         type="submit"
                         disabled={isSubmitting}
                         className={`w-full text-white py-4 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg flex items-center justify-center gap-2 mt-8 ${activeTab === 'member'
-                                ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25 active:bg-blue-800'
-                                : 'bg-gray-800 hover:bg-gray-900 shadow-gray-500/25 active:bg-black'
+                            ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25 active:bg-blue-800'
+                            : 'bg-gray-800 hover:bg-gray-900 shadow-gray-500/25 active:bg-black'
                             }`}
                     >
                         {isSubmitting ? (

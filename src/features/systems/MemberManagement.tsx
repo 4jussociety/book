@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
-import { Check, X, User, Loader2, Users, Shield, Stethoscope, Trash2, AlertTriangle, Plus, Key } from 'lucide-react'
+import { Check, X, Loader2, Users, Shield, Stethoscope, Trash2, AlertTriangle, Plus, Key } from 'lucide-react'
 
 type GuestRequest = {
     id: string
@@ -367,8 +367,8 @@ export default function MemberManagement() {
                                             type="button"
                                             onClick={() => setNewMemberForm({ ...newMemberForm, role: 'therapist' })}
                                             className={`py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${newMemberForm.role === 'therapist'
-                                                    ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-700 font-bold'
-                                                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-700 font-bold'
+                                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <Stethoscope className={`w-5 h-5 ${newMemberForm.role === 'therapist' ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -378,8 +378,8 @@ export default function MemberManagement() {
                                             type="button"
                                             onClick={() => setNewMemberForm({ ...newMemberForm, role: 'staff' })}
                                             className={`py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${newMemberForm.role === 'staff'
-                                                    ? 'bg-green-50 border-green-500 ring-1 ring-green-500 text-green-700 font-bold'
-                                                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                ? 'bg-green-50 border-green-500 ring-1 ring-green-500 text-green-700 font-bold'
+                                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <Shield className={`w-5 h-5 ${newMemberForm.role === 'staff' ? 'text-green-600' : 'text-gray-400'}`} />
