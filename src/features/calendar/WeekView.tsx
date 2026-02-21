@@ -552,7 +552,7 @@ export default function WeekView() {
                 >
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
-                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
+                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40 h-max', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
                                 {timeSlots.map(hour => {
                                     const period = hour < 12 ? 'AM' : 'PM'
@@ -573,7 +573,7 @@ export default function WeekView() {
                         </div>
 
                         {/* Day Columns */}
-                        <div className={clsx('flex flex-1 relative', !isMobile && 'min-w-max')}>
+                        <div className={clsx('flex flex-1 relative h-max', !isMobile && 'min-w-max')}>
                             {weekDays.map(day => {
                                 const isToday = isSameDayKST(day, now)
                                 const dayISO = formatKST(day, 'yyyy-MM-dd')
