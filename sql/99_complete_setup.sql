@@ -44,7 +44,6 @@ CREATE TABLE IF NOT EXISTS systems (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     owner_id UUID REFERENCES auth.users(id),
-    serial_number TEXT UNIQUE DEFAULT upper(substr(md5(random()::text), 1, 8)),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -79,7 +78,7 @@ CREATE TABLE IF NOT EXISTS guest_access (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     system_id UUID REFERENCES systems(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    status access_status DEFAULT 'pending',
+    status access_status DEFAULT 'approved',
     role TEXT CHECK (role IN ('therapist', 'staff')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE(system_id, user_id)
@@ -224,25 +223,15 @@ CREATE POLICY "System access for appointments" ON appointments FOR ALL USING (
 -- 3.1 Auth Triggers
 CREATE OR REPLACE FUNCTION handle_new_user() 
 RETURNS TRIGGER AS $$
-DECLARE
-  default_role text;
 BEGIN
-  IF new.email LIKE '%@thept.co.kr' THEN
-    default_role := 'therapist'; 
-  ELSE
-    default_role := NULL; 
-  END IF;
-
-  INSERT INTO public.profiles (id, email, full_name, role)
+  INSERT INTO public.profiles (id, email, full_name)
   VALUES (
       new.id, 
       new.email, 
-      COALESCE(new.raw_user_meta_data->>'full_name', 'User'),
-      default_role
+      COALESCE(new.raw_user_meta_data->>'full_name', 'User')
   )
   ON CONFLICT (id) DO UPDATE
   SET 
-    role = EXCLUDED.role,
     email = EXCLUDED.email;
 
   RETURN new;
@@ -311,51 +300,7 @@ AFTER DELETE ON patients
 FOR EACH ROW
 EXECUTE FUNCTION reset_patient_counter_if_empty();
 
--- 3.4 Guest Login RPC
-CREATE OR REPLACE FUNCTION login_guest(
-    p_serial_number TEXT,
-    p_name TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_system_id UUID;
-    v_old_user_id UUID;
-    v_status access_status;
-BEGIN
-    SELECT id INTO v_system_id FROM systems WHERE serial_number = p_serial_number;
-    IF v_system_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'message', '존재하지 않는 일련번호입니다.');
-    END IF;
-
-    SELECT ga.user_id, ga.status
-    INTO v_old_user_id, v_status
-    FROM guest_access ga
-    JOIN profiles p ON ga.user_id = p.id
-    WHERE ga.system_id = v_system_id
-      AND p.full_name = p_name
-      AND ga.status = 'approved'
-    ORDER BY ga.created_at DESC
-    LIMIT 1;
-
-    IF v_old_user_id IS NULL THEN
-         RETURN jsonb_build_object('success', false, 'message', '승인된 사용자 기록이 없습니다.');
-    END IF;
-
-    UPDATE guest_access SET user_id = auth.uid() WHERE user_id = v_old_user_id AND system_id = v_system_id;
-
-    UPDATE profiles 
-    SET full_name = p_name, 
-        system_id = v_system_id
-    WHERE id = auth.uid();
-    
-    UPDATE profiles SET system_id = NULL WHERE id = v_old_user_id AND id != auth.uid();
-
-    RETURN jsonb_build_object('success', true);
-END;
-$$;
+-- Removed Guest Login RPC (Replaced by Edge Function create_member)
 
 
 -- [Part 4] 예약 방문 횟수 자동 계산
