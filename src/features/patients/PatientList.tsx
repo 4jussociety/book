@@ -149,13 +149,17 @@ export default function PatientList() {
                                             {patient.gender === 'M' || patient.gender === 'MALE' ? '남' : '여'}
                                         </span>
                                         {patient.birth_date && (
-                                            <span className="text-[10px] text-gray-400 font-medium">
+                                            <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">
                                                 {new Date().getFullYear() - parseInt(patient.birth_date.substring(0, 4))}세
                                             </span>
                                         )}
+                                        {patient.phone && (
+                                            <span className="text-[11px] text-gray-500 font-medium ml-1 whitespace-nowrap">
+                                                {patient.phone}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                                        {patient.phone && <span>{patient.phone}</span>}
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
                                         {patient.last_therapist_name && (
                                             <span className="font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
                                                 {patient.last_therapist_name}

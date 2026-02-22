@@ -495,11 +495,11 @@ export default function StatisticsPage() {
                                                 {BUCKET_LABELS[b]}
                                             </th>
                                         ))}
-                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">합계</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">완료</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">매출/인센티브</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">노쇼</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">신규환자</th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">합계</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">완료</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">매출/인센티브</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">노쇼</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">신규환자</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">

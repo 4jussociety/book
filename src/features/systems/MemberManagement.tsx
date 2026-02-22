@@ -209,11 +209,11 @@ export default function MemberManagement() {
                     <table className="w-full text-left text-sm min-w-[600px]">
                         <thead className="bg-gray-50 text-gray-600 border-b border-gray-100">
                             <tr>
-                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">이름</th>
-                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">가입 이메일(ID)</th>
-                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">연락처</th>
-                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">현재 역할</th>
-                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-right">관리</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">이름</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">가입 이메일(ID)</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">연락처</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">현재 역할</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-right whitespace-nowrap">관리</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -251,13 +251,13 @@ export default function MemberManagement() {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-500 font-mono text-xs max-w-[200px] truncate" title={member.profiles?.email || ''}>
+                                        <td className="px-6 py-4 text-gray-500 font-mono text-xs max-w-[200px] truncate whitespace-nowrap" title={member.profiles?.email || ''}>
                                             {member.profiles?.email || '-'}
                                         </td>
-                                        <td className="px-6 py-4 text-gray-600 text-sm">
+                                        <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
                                             {member.profiles?.phone || <span className="text-gray-300">미입력</span>}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {member.role !== 'owner' ? (
                                                 <div className="flex items-center gap-2">
                                                     <button
@@ -321,7 +321,7 @@ export default function MemberManagement() {
                                                 <span className="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">원장(직책 고정)</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 text-right whitespace-nowrap">
                                             {member.role !== 'owner' && (
                                                 <button
                                                     onClick={async () => {

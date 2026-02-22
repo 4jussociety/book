@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { LogOut, User, CalendarDays, Users, BarChart3, Menu, X } from 'lucide-react'
+import { LogOut, User, CalendarDays, Users, BarChart3, Menu, X, Globe } from 'lucide-react'
 import { clsx } from 'clsx'
 
 export default function GNB() {
@@ -53,6 +53,14 @@ export default function GNB() {
                                 {item.label}
                             </NavLink>
                         ))}
+                        <a
+                            href="https://thept.co.kr"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 text-sm font-bold transition-all rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        >
+                            커뮤니티
+                        </a>
                     </nav>
                 </div>
 
@@ -156,6 +164,16 @@ export default function GNB() {
                             </NavLink>
                         )
                     })}
+                    {/* 커뮤니티 외부 링크 */}
+                    <a
+                        href="https://thept.co.kr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-colors text-gray-400"
+                    >
+                        <Globe className="w-5 h-5" />
+                        <span className="text-[10px] font-bold">커뮤니티</span>
+                    </a>
                     {/* 프로필 탭 */}
                     <NavLink
                         to={profile?.is_owner ? "/admin" : "/profile"}
