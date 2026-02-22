@@ -7,7 +7,7 @@ import { getPatients, deletePatient } from './api'
 import type { PatientWithDetails } from './api'
 import { Plus, Search, Trash2, Edit, CalendarPlus, Users, Hash } from 'lucide-react'
 import PatientModal from './PatientModal'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import type { Patient } from '@/types/db'
 import { useIsMobile } from '@/hooks/useMediaQuery'
@@ -132,6 +132,11 @@ export default function PatientList() {
                                                 {patient.last_therapist_name}
                                             </span>
                                         )}
+                                        {patient.last_visit && (
+                                            <span className="font-medium text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded text-[10px]">
+                                                {format(parseISO(patient.last_visit), 'yy.MM.dd')}
+                                            </span>
+                                        )}
                                         <span className="font-bold text-gray-600">
                                             {patient.visit_count}회
                                         </span>
@@ -226,12 +231,12 @@ export default function PatientList() {
                                     </td>
                                     <td className="px-5 py-3 text-xs text-gray-400 font-medium">
                                         {patient.first_visit
-                                            ? format(new Date(patient.first_visit), 'yy.MM.dd')
+                                            ? format(parseISO(patient.first_visit), 'yy.MM.dd')
                                             : '-'}
                                     </td>
                                     <td className="px-5 py-3 text-xs text-gray-400 font-medium">
                                         {patient.last_visit
-                                            ? format(new Date(patient.last_visit), 'yy.MM.dd')
+                                            ? format(parseISO(patient.last_visit), 'yy.MM.dd')
                                             : '-'}
                                     </td>
                                     <td className="px-5 py-3 text-right">

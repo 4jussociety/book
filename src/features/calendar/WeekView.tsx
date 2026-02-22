@@ -560,7 +560,7 @@ export default function WeekView() {
                                     return (
                                         <div
                                             key={hour}
-                                            className="absolute w-full flex justify-center transform -translate-y-5"
+                                            className="absolute w-full flex justify-center transform -translate-y-2.5"
                                             style={{ top: `${(hour - START_HOUR) * PX_PER_HOUR}px` }}
                                         >
                                             <span className="text-[10px] md:text-[11px] font-bold text-gray-400 bg-white/90 px-1 rounded z-10">

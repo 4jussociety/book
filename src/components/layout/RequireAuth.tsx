@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import AccessPendingScreen from '@/features/auth/AccessPendingScreen'
 
 export default function RequireAuth() {
-    const { session, profile, guestStatus, loading } = useAuth()
+    const { session, guestStatus, loading } = useAuth()
 
     if (loading) {
         return (
@@ -17,8 +17,8 @@ export default function RequireAuth() {
         return <Navigate to="/login" replace />
     }
 
-    // 게스트 유저인데 승인되지 않았거나 대기 중인 경우
-    if (profile?.role === 'guest' && guestStatus !== 'approved') {
+    // 승인 대기 또는 거절된 경우
+    if (guestStatus === 'pending' || guestStatus === 'rejected') {
         return <AccessPendingScreen />
     }
 

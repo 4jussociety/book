@@ -36,8 +36,7 @@ export function useRealtimeAppointments(systemId?: string | null) {
                     table: 'appointments',
                     filter: `system_id=eq.${systemId}`, // 내 병원의 변경만 수신!
                 },
-                (payload) => {
-                    console.log('[Realtime] appointments 변경 감지:', payload.eventType)
+                () => {
                     queryClient.invalidateQueries({ queryKey: ['appointments'] })
                     queryClient.invalidateQueries({ queryKey: ['statistics'] })
                 }
@@ -50,14 +49,16 @@ export function useRealtimeAppointments(systemId?: string | null) {
                     table: 'profiles',
                     filter: `system_id=eq.${systemId}`,
                 },
-                (payload) => {
-                    console.log('[Realtime] profiles 변경 감지:', payload.eventType)
+                () => {
                     queryClient.invalidateQueries({ queryKey: ['profiles'] })
                     queryClient.invalidateQueries({ queryKey: ['statistics'] })
                 }
             )
             .subscribe((status) => {
-                console.log(`[Realtime] 구독 상태 (${systemId}):`, status)
+                // 에러 상태일 때만 출력
+                if (status === 'CHANNEL_ERROR') {
+                    console.error(`[Realtime] 구독 실패 (${systemId}):`, status)
+                }
             })
 
         channelRef.current = channel

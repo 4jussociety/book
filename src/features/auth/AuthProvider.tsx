@@ -14,74 +14,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchProfile = useCallback(async (userId: string, userEmail?: string) => {
         try {
-            // Fetch profile
+            // 1. Fetch base profile
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
-                .select('id, system_id, role, full_name, message_template, organization_name, avatar_url, contact_number')
+                .select('id, email, full_name, color_code, avatar_url')
                 .eq('id', userId)
                 .maybeSingle()
 
-            if (profileError || !profileData) {
-                // If profile missing, but user is admin (@thept.co.kr), provide fallback
-                if (userEmail?.endsWith('@thept.co.kr')) {
-                    const fallback = {
-                        id: userId,
-                        system_id: null,
-                        role: 'therapist',
-                        full_name: userEmail.split('@')[0]
-                    }
-                    setProfile(fallback)
-                } else if (userEmail === undefined && !userId.includes('-')) {
-                    setProfile(null)
-                } else {
-                    setProfile(null)
-                }
-            } else {
-                // @thept.co.kr 관리자인데 role이 null인 경우 therapist로 보정
-                if (userEmail?.endsWith('@thept.co.kr') && !profileData.role) {
-                    profileData.role = 'therapist'
-                }
-                setProfile(profileData)
-            }
+            // phone 컬럼 안전 조회 (DB 마이그레이션 전에도 동작하도록)
+            let phoneValue: string | undefined
+            try {
+                const { data: phoneData } = await supabase
+                    .from('profiles')
+                    .select('phone')
+                    .eq('id', userId)
+                    .maybeSingle()
+                phoneValue = phoneData?.phone || undefined
+            } catch { /* phone 컬럼 미존재 시 무시 */ }
 
-            // If user is guest/anonymous, check access status
-            const { data: guestData } = await supabase
-                .from('guest_access')
-                .select('status, role') // role 추가 조회
+            const baseProfile = profileData as Profile | null
+            const combinedProfile = baseProfile || { id: userId, full_name: userEmail?.split('@')[0] || '' } as Profile
+            if (phoneValue) combinedProfile.phone = phoneValue
+
+            // 2. Fetch system_members (replacement for guest_access)
+            const { data: memberData } = await supabase
+                .from('system_members')
+                .select('system_id, role, status')
                 .eq('user_id', userId)
                 .maybeSingle()
 
-            if (guestData) {
-                setGuestStatus(guestData.status)
-                // 게스트 접근 승인 시, guest_access의 role을 프로필 역할로 사용
-                if (guestData.status === 'approved' && guestData.role && profileData) {
-                    profileData.role = guestData.role
+            if (memberData) {
+                setGuestStatus(memberData.status as GuestStatus)
+                if (memberData.status === 'approved') {
+                    combinedProfile.system_id = memberData.system_id
+                    combinedProfile.role = memberData.role
+
+                    // 3. Fetch system details to inject settings into profile
+                    const { data: systemData, error: sysError } = await supabase
+                        .from('systems')
+                        .select('owner_id, organization_name, contact_number, admin_name')
+                        .eq('id', memberData.system_id)
+                        .maybeSingle()
+
+                    if (sysError) {
+                        console.error('[AuthProvider] System DB 조회 실패 (마이그레이션 누락 의심):', sysError)
+                    }
+
+                    // 4. Fetch pricing settings & message templates (안전 조회 - 테이블 미존재 시 무시)
+                    let pricingRes: any = { data: null }
+                    let templateRes: any = { data: null }
+                    try {
+                        const results = await Promise.all([
+                            supabase
+                                .from('pricing_settings')
+                                .select('*')
+                                .eq('system_id', memberData.system_id)
+                                .order('duration_minutes'),
+                            supabase
+                                .from('message_templates')
+                                .select('*')
+                                .eq('system_id', memberData.system_id)
+                                .eq('is_default', true)
+                                .maybeSingle()
+                        ])
+                        pricingRes = results[0]
+                        templateRes = results[1]
+                    } catch { /* 테이블 미존재 시 무시 */ }
+
+                    if (systemData) {
+                        combinedProfile.is_owner = systemData.owner_id === userId
+                        combinedProfile.organization_name = systemData.organization_name || undefined
+                        combinedProfile.contact_number = systemData.contact_number || undefined
+                        combinedProfile.admin_name = systemData.admin_name || undefined
+                    }
+
+                    // 가격 설정 주입
+                    if (pricingRes.data) {
+                        combinedProfile.pricing = pricingRes.data
+                    }
+
+                    // 문자 템플릿 주입
+                    if (templateRes.data) {
+                        combinedProfile.message_template = templateRes.data.template_body
+                    }
                 }
             } else {
                 setGuestStatus(null)
             }
 
-            // Check System Ownership
-            let isOwner = false
-            if (profileData?.system_id) {
-                const { data: systemData } = await supabase
-                    .from('systems')
-                    .select('owner_id')
-                    .eq('id', profileData.system_id)
-                    .single()
-
-                if (systemData && systemData.owner_id === userId) {
-                    isOwner = true
+            // Fallback handling if no profile data
+            if (profileError || !profileData) {
+                // system_members에서 승인된 멤버라면 → 정상 프로필로 세팅
+                if (memberData?.status === 'approved' && combinedProfile.role) {
+                    setProfile(combinedProfile)
+                } else if (userEmail?.endsWith('@thept.co.kr')) {
+                    if (!combinedProfile.role) combinedProfile.role = 'pending_admin'
+                    setProfile(combinedProfile)
+                } else {
+                    setProfile(null)
                 }
+                return
             }
 
-            // Update profile with is_owner flag
-            if (profileData) {
-                setProfile({ ...profileData, is_owner: isOwner })
-            } else if (userEmail?.endsWith('@thept.co.kr')) { // Fallback profile case
-                setProfile((prev: Profile | null) => prev ? { ...prev, is_owner: true } : prev) // Assuming admin fallback is owner-like
+            if (userEmail?.endsWith('@thept.co.kr') && !combinedProfile.role) {
+                combinedProfile.role = 'pending_admin'
             }
 
+            setProfile(combinedProfile)
         } catch (error) {
             console.error('[AuthProvider] 에러:', error)
         }

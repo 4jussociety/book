@@ -33,7 +33,7 @@ export default function SystemSetupModal() {
                 const { data, error: insertError } = await supabase
                     .from('systems')
                     .insert({
-                        serial_number: `sys_${Date.now()}_${Math.random().toString(36).substring(7)}`, // 더미 데이터
+                        name: `${user.user_metadata?.full_name || user.email?.split('@')[0] || '원장'}님의 시스템`,
                         owner_id: user.id,
                     })
                     .select()
@@ -42,6 +42,8 @@ export default function SystemSetupModal() {
                 if (!insertError && data) {
                     system = data
                     break
+                } else if (insertError) {
+                    console.error('System Insert Error:', insertError)
                 }
 
                 // 중복 에러가 아니면 즉시 throw
@@ -52,19 +54,34 @@ export default function SystemSetupModal() {
 
             if (!system) throw new Error('일련번호 생성에 실패했습니다. 잠시 후 다시 시도해주세요.')
 
-            // 프로필 업데이트 (system_id 연결) - 없으면 생성 (Upsert)
+            // 1. 프로필 업데이트 (기본 정보) -> 없으면 생성
             const { error: profileError } = await supabase
                 .from('profiles')
                 .upsert({
                     id: user.id,
-                    system_id: system.id,
                     email: user.email,
-                    role: 'therapist', // 시스템 개설자는 항상 therapist
                     full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Therapist'
                 })
-                .select()
 
-            if (profileError) throw profileError
+            if (profileError) {
+                console.error('Profile Upsert Error:', profileError)
+                throw profileError
+            }
+
+            // 2. 시스템 멤버십 추가 (개설자를 owner로)
+            const { error: memberError } = await supabase
+                .from('system_members')
+                .upsert({
+                    system_id: system.id,
+                    user_id: user.id,
+                    status: 'approved',
+                    role: 'owner'
+                })
+
+            if (memberError && !memberError.message?.includes('duplicate')) {
+                console.error('Member Insert Error:', memberError)
+                throw memberError
+            }
 
             setIsSystemCreated(true)
 

@@ -1,18 +1,58 @@
+// 데이터베이스 테이블 타입 정의
+// 각 테이블의 TypeScript 인터페이스와 런타임 확장 속성을 관리
+
 export type Profile = {
     id: string
     email?: string
     name?: string
     full_name: string
-    role: string // 'staff' | 'admin' | 'therapist'
+    phone?: string
     color_code?: string
-    system_id: string | null
     created_at?: string
-    message_template?: string
     avatar_url?: string
+
+    // DB에는 없지만 Context에서 조인/주입되어 사용되는 런타임 속성
+    system_id?: string | null
+    role?: 'owner' | 'staff' | 'therapist' | 'pending_admin'
+    is_owner?: boolean
     organization_name?: string
     contact_number?: string
-    is_owner?: boolean // 클라이언트 상태용 (DB 컬럼 아님)
+    admin_name?: string
     incentive_percentage?: number // 0~100
+
+    // 기능별 테이블에서 조인되는 런타임 속성
+    pricing?: PricingSetting[]
+    message_template?: string  // 기본 템플릿 body (편의 속성)
+}
+
+export type System = {
+    id: string
+    name: string
+    owner_id: string
+    created_at: string
+    organization_name: string | null
+    contact_number: string | null
+    admin_name: string | null
+    last_patient_no: number
+}
+
+export type PricingSetting = {
+    id: string
+    system_id: string
+    duration_minutes: number
+    price: number
+    created_at: string
+    updated_at: string
+}
+
+export type MessageTemplate = {
+    id: string
+    system_id: string
+    template_name: string
+    template_body: string
+    is_default: boolean
+    created_at: string
+    updated_at: string
 }
 
 export type Patient = {
@@ -54,11 +94,11 @@ export type Appointment = {
     therapist?: Profile
 }
 
-export type GuestAccess = {
+export type SystemMember = {
     id: string
     system_id: string
     user_id: string
     status: 'pending' | 'approved' | 'rejected'
-    role?: 'therapist' | 'staff' // Added role column
+    role: 'owner' | 'therapist' | 'staff'
     created_at: string
 }

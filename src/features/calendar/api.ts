@@ -126,37 +126,25 @@ export async function getPatients(query?: string) {
 export async function getProfiles(systemId?: string) {
     if (!systemId) return []
 
-    // 1. 해당 시스템의 Owner ID 조회
-    const { data: system, error: systemError } = await supabase
-        .from('systems')
-        .select('owner_id')
-        .eq('id', systemId)
-        .single()
-
-    if (systemError) throw systemError
-
-    // 2. Guest Access에서 치료사 권한을 가진 사용자 ID 조회
-    const { data: guestTherapists, error: guestError } = await supabase
-        .from('guest_access')
+    // 1. System Members에서 therapist 권한을 가진 사용자의 ID만 조회 (owner 제외)
+    const { data: members, error: membersError } = await supabase
+        .from('system_members')
         .select('user_id')
         .eq('system_id', systemId)
         .eq('role', 'therapist')
         .eq('status', 'approved')
 
-    if (guestError) throw guestError
+    if (membersError) throw membersError
 
-    const therapistIds = new Set(guestTherapists.map(g => g.user_id))
-    if (system.owner_id) {
-        therapistIds.add(system.owner_id)
-    }
+    const therapistIds = Array.from(new Set(members.map(m => m.user_id)))
 
-    // 3. ID 목록에 해당하는 프로필 조회 (system_id 필터 제거)
-    if (therapistIds.size === 0) return []
+    if (therapistIds.length === 0) return []
 
+    // 2. ID 목록에 해당하는 프로필 조회
     const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .in('id', Array.from(therapistIds))
+        .in('id', therapistIds)
         .order('full_name')
 
     if (profileError) throw profileError

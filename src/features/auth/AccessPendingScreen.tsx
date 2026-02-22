@@ -18,7 +18,7 @@ export default function AccessPendingScreen() {
         return () => clearInterval(interval)
     }, [])
 
-    // Supabase Realtime 구독: guest_access 상태 변경 감지
+    // Supabase Realtime 구독: system_members 상태 변경 감지
     useEffect(() => {
         if (!user) return
 
@@ -29,7 +29,7 @@ export default function AccessPendingScreen() {
                 {
                     event: 'UPDATE',
                     schema: 'public',
-                    table: 'guest_access',
+                    table: 'system_members',
                     filter: `user_id=eq.${user.id}`,
                 },
                 (payload) => {

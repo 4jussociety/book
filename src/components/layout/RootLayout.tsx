@@ -12,7 +12,7 @@ export default function RootLayout() {
     useRealtimeAppointments(profile?.system_id)
 
     // 관리자(테라피스트)인데 시스템 ID가 없는 경우 개설 모달 표시
-    const showSetupModal = profile && !profile.system_id && profile.role === 'therapist'
+    const showSetupModal = profile && !profile.system_id && profile.role === 'pending_admin'
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans">

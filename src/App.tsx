@@ -8,6 +8,7 @@ import PatientList from './features/patients/PatientList'
 import StatisticsPage from './features/statistics/StatisticsPage'
 import MemberManagement from './features/systems/MemberManagement'
 import ProfilePage from './features/profile/ProfilePage'
+import AdminPage from './features/admin/AdminPage'
 
 import RootLayout from './components/layout/RootLayout'
 
@@ -29,6 +30,7 @@ function App() {
                 <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/members" element={<MemberManagement />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/admin" element={<AdminPage />} />
               </Route>
             </Route>
           </Routes>

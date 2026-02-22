@@ -21,10 +21,9 @@ import { useAuth } from '../auth/AuthContext'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
-const PRICE_KEY = 'clinic_duration_prices'
-const loadPrices = (): DurationPrice[] => {
-    if (typeof window === 'undefined') return []
-    try { return JSON.parse(localStorage.getItem(PRICE_KEY) || '') } catch { return [] }
+const loadPricesFromProfile = (profile: Profile | null): DurationPrice[] => {
+    if (!profile?.pricing) return []
+    return profile.pricing.map(p => ({ durationMin: p.duration_minutes, priceKrw: p.price }))
 }
 
 const BUCKET_LABELS: Record<number, string> = {
@@ -55,18 +54,20 @@ export default function StatisticsPage() {
 
     const [period, setPeriod] = useState<PeriodType>('week')
     const [viewDate, setViewDate] = useState(new Date())
-    const [selectedWeekIndex, setSelectedWeekIndex] = useState(() => {
-        return getWeekOfMonth(new Date(), { weekStartsOn: 1 }) - 1
-    })
+    // 이번 달 주차 계산 (월요일 시작이 아닌 일요일 시작으로 변경)
+    const currentWeekOfMonth = useMemo(() => {
+        return getWeekOfMonth(new Date(), { weekStartsOn: 0 }) - 1
+    }, [])
+    const [selectedWeekIndex, setSelectedWeekIndex] = useState(currentWeekOfMonth)
     const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null)
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
 
-    // 단가 설정 로드
+    // 단가 설정 로드 (profile.pricing에서)
     const [prices, setPrices] = useState<DurationPrice[]>([])
     useEffect(() => {
-        setPrices(loadPrices())
-    }, [])
+        setPrices(loadPricesFromProfile(profile))
+    }, [profile])
 
     // 인센티브 설정 상태
     const [editingIncentiveId, setEditingIncentiveId] = useState<string | null>(null)
@@ -92,7 +93,7 @@ export default function StatisticsPage() {
 
     useEffect(() => {
         if (period === 'week') {
-            const currentWeekOfMonth = getWeekOfMonth(new Date(), { weekStartsOn: 1 })
+            const currentWeekOfMonth = getWeekOfMonth(new Date(), { weekStartsOn: 0 })
             setSelectedWeekIndex(currentWeekOfMonth - 1)
         }
     }, [period])
@@ -100,8 +101,8 @@ export default function StatisticsPage() {
     const weeksInMonth = useMemo(() => {
         const start = startOfMonth(viewDate)
         const end = endOfMonth(viewDate)
-        return eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).filter(weekStart =>
-            isSameMonth(weekStart, viewDate) || isSameMonth(endOfWeek(weekStart, { weekStartsOn: 1 }), viewDate)
+        return eachWeekOfInterval({ start, end }, { weekStartsOn: 0 }).filter(weekStart =>
+            isSameMonth(weekStart, viewDate) || isSameMonth(endOfWeek(weekStart, { weekStartsOn: 0 }), viewDate)
         )
     }, [viewDate])
 
@@ -113,16 +114,15 @@ export default function StatisticsPage() {
             case 'week':
                 if (weeksInMonth.length > 0) {
                     const targetWeekStart = weeksInMonth[Math.min(selectedWeekIndex, weeksInMonth.length - 1)]
-                    return { start: targetWeekStart, end: endOfWeek(targetWeekStart, { weekStartsOn: 1 }) }
+                    return { start: targetWeekStart, end: endOfWeek(targetWeekStart, { weekStartsOn: 0 }) }
                 }
-                return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) }
+                return { start: startOfWeek(today, { weekStartsOn: 0 }), end: endOfWeek(today, { weekStartsOn: 0 }) }
             case 'month':
                 return { start: startOfMonth(viewDate), end: endOfMonth(viewDate) }
             case 'custom':
-                if (customStart && customEnd) {
-                    return { start: new Date(customStart), end: new Date(customEnd + 'T23:59:59') }
-                }
-                return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) }
+                return { start: customStart ? new Date(customStart) : today, end: customEnd ? new Date(customEnd + 'T23:59:59') : today }
+            default:
+                return { start: startOfWeek(today, { weekStartsOn: 0 }), end: endOfWeek(today, { weekStartsOn: 0 }) }
         }
     }, [period, viewDate, selectedWeekIndex, weeksInMonth, customStart, customEnd])
 

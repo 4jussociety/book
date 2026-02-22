@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 // 최소 요구사항만 갖춘 로그인 스키마
 const loginSchema = z.object({
-    id: z.string().min(1, '아이디 또는 이메일을 입력해주세요.'),
+    id: z.string().min(1, '이메일을 입력해주세요.'),
     password: z.string().min(1, '비밀번호를 입력해주세요.'),
 })
 
@@ -53,12 +53,8 @@ export default function LoginPage() {
             if (!data.id.includes('@')) {
                 emailToLogin = `${data.id}@thept.co.kr`
             }
-        } else {
-            // 직원(멤버) 탭: 무조건 @member.thept.co.kr
-            if (!data.id.includes('@')) {
-                emailToLogin = `${data.id.toLowerCase()}@member.thept.co.kr`
-            }
         }
+        // 직원(멤버) 탭: 입력값 그대로 사용 (실제 이메일)
 
         try {
             const { error: authError } = await supabase.auth.signInWithPassword({
@@ -116,14 +112,14 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
-                            {activeTab === 'member' ? '발급 받은 아이디' : '관리자 아이디 또는 이메일'}
+                            {activeTab === 'member' ? '이메일' : '관리자 아이디 또는 이메일'}
                         </label>
                         <div className="relative group">
                             <input
                                 {...register('id')}
-                                type="text"
+                                type={activeTab === 'member' ? 'email' : 'text'}
                                 className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium placeholder-gray-400"
-                                placeholder={activeTab === 'member' ? "아이디를 입력하세요" : "admin@email.com"}
+                                placeholder={activeTab === 'member' ? "staff@email.com" : "admin@email.com"}
                                 autoCapitalize="none"
                                 autoComplete="username"
                             />
@@ -166,7 +162,7 @@ export default function LoginPage() {
 
                     {activeTab === 'member' && (
                         <p className="text-center text-xs text-gray-400 mt-6 font-medium">
-                            안내: 직원 계정은 소속 센터의 관리자(원장)가 직접 발급할 수 있습니다.
+                            안내: 관리자(원장)에게 발급받은 이메일로 로그인하세요.
                         </p>
                     )}
                 </form>
