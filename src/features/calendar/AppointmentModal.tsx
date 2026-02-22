@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { formatKST, parseKSTDateTime } from '@/lib/dateUtils'
 import { usePatients, useProfiles, useCreateAppointment, useUpdateAppointment, usePatientAppointments } from './useCalendar'
+import { useQuery } from '@tanstack/react-query'
+import { getActiveMemberships } from '@/features/patients/membershipsApi'
 import PatientForm from '@/features/patients/PatientForm'
 import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -19,6 +21,7 @@ const appointmentSchema = z.object({
     memo: z.string().optional(),
     event_type: z.enum(['APPOINTMENT', 'BLOCK']),
     block_title: z.string().optional(),
+    membership_id: z.string().optional().nullable(),
 })
 
 type AppointmentForm = z.infer<typeof appointmentSchema>
@@ -70,6 +73,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 setValue('block_title', editingAppointment.block_title || '')
                 setValue('memo', editingAppointment.note || '')
                 setValue('therapist_id', editingAppointment.therapist_id)
+                setValue('membership_id', editingAppointment.membership_id || '')
 
                 const start = new Date(editingAppointment.start_time)
                 const end = new Date(editingAppointment.end_time)
@@ -100,6 +104,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     event_type: initialData ? 'APPOINTMENT' : 'APPOINTMENT',
                     block_title: '',
                     memo: '',
+                    membership_id: '',
                 })
 
                 if (initialData) {
@@ -127,6 +132,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     const { data: patientHistory } = usePatientAppointments(selectedPatient?.id)
 
+    // 선택된 환자의 ACTIVE 회원권 목록 조회
+    const { data: activeMemberships } = useQuery({
+        queryKey: ['activeMemberships', selectedPatient?.id],
+        queryFn: () => getActiveMemberships(selectedPatient!.id),
+        enabled: !!selectedPatient?.id,
+    })
+
     const onSubmit = async (data: AppointmentForm) => {
         if (!myProfile?.system_id) {
             alert('시스템 정보가 없습니다. 관리자에게 문의하여 소속 시스템을 설정해주세요.')
@@ -148,6 +160,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         end_time: endDateTime.toISOString(),
                         note: data.memo, // 예약 메모에도 저장 (선택 사항)
                         block_title: data.block_title,
+                        membership_id: data.membership_id || null,
                         version: editingAppointment.version,
                     }
                 })
@@ -161,6 +174,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     status: 'PENDING',
                     note: data.memo, // 예약 메모에도 저장
                     block_title: data.block_title,
+                    membership_id: data.membership_id || null,
                     system_id: myProfile?.system_id,
                 })
             }
@@ -320,18 +334,49 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                         {eventType === 'BLOCK' ? '잠금 제목' : '환자 정보'}
                                     </label>
                                     {eventType === 'APPOINTMENT' ? (
-                                        <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100 flex items-center gap-2.5 h-[42px]">
-                                            <div className="w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 shrink-0">
-                                                <User className="w-3.5 h-3.5" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="text-sm font-black text-gray-900 truncate leading-none">
-                                                    {selectedPatient ? selectedPatient.name : '신규'}
+                                        <div className="space-y-2">
+                                            <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100 flex items-center gap-2.5 h-[42px]">
+                                                <div className="w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 shrink-0">
+                                                    <User className="w-3.5 h-3.5" />
                                                 </div>
-                                                {selectedPatient && <div className="text-[10px] text-gray-500 font-medium truncate">{selectedPatient.is_manual_no ? '' : '#'}{selectedPatient.patient_no}</div>}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm font-black text-gray-900 truncate leading-none">
+                                                        {selectedPatient ? selectedPatient.name : '신규'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        {selectedPatient && <span className="text-[10px] text-gray-500 font-medium truncate">{selectedPatient.is_manual_no ? '' : '#'}{selectedPatient.patient_no}</span>}
+                                                        {editingAppointment?.visit_count && (
+                                                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                                                {editingAppointment.visit_count}회차
+                                                            </span>
+                                                        )}
+                                                        {editingAppointment?.membership && (
+                                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                                🎟️ {editingAppointment.membership.total_sessions - editingAppointment.membership.used_sessions}/{editingAppointment.membership.total_sessions}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {!editingAppointment && (
+                                                    <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
+                                                )}
                                             </div>
-                                            {!editingAppointment && (
-                                                <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
+                                            {/* 회원권 선택 (환자가 활성화된 회원권이 있을 경우) */}
+                                            {selectedPatient && activeMemberships && activeMemberships.length > 0 && (
+                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                                    <label className="block text-[10px] font-black text-amber-600 mb-1 ml-1 flex items-center gap-1">🎟️ 회원권 적용</label>
+                                                    <select
+                                                        {...register('membership_id')}
+                                                        className="w-full px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
+                                                    >
+                                                        <option value="">적용 안 함 (일반 예약)</option>
+                                                        {activeMemberships.map(m => (
+                                                            <option key={m.id} value={m.id}>
+                                                                {m.name} ({m.total_sessions - m.used_sessions}회 남음)
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             )}
                                         </div>
                                     ) : (

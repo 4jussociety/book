@@ -34,3 +34,4 @@ export default function PatientModal({ isOpen, onClose, initialData }: Props) {
         </div>
     )
 }
+

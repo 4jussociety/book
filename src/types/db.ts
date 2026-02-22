@@ -55,6 +55,21 @@ export type MessageTemplate = {
     updated_at: string
 }
 
+export type PatientMembership = {
+    id: string
+    system_id: string
+    patient_id: string
+    name: string
+    total_sessions: number
+    used_sessions: number
+    amount_paid: number
+    payment_date: string
+    expiration_date: string | null
+    status: 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED' | 'REFUNDED'
+    created_at: string
+    updated_at: string
+}
+
 export type Patient = {
     id: string
     patient_no: number
@@ -89,9 +104,12 @@ export type Appointment = {
     system_id: string | null
     created_at: string
     price?: number // 예상 결제 금액 (원)
+    membership_id?: string | null // 회원권 연동 ID
+
     // Joins
     patient?: Patient
     therapist?: Profile
+    membership?: PatientMembership
 }
 
 export type SystemMember = {

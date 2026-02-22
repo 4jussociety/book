@@ -95,10 +95,9 @@ export function DraggableAppointmentContent({
                             </span>
                         )}
                     </div>
-                    {appointment.visit_count && !isSmall && (
-                        <div className="text-[10px] font-bold opacity-60 flex items-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-current opacity-40"></span>
-                            {appointment.visit_count}회차
+                    {appointment.membership && !isSmall && (
+                        <div className="text-[10px] font-bold opacity-70 flex items-center gap-1">
+                            🎟️ {appointment.membership.total_sessions - appointment.membership.used_sessions}/{appointment.membership.total_sessions}
                         </div>
                     )}
                 </div>

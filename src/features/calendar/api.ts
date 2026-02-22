@@ -13,13 +13,12 @@ export async function getAppointments(date: Date) {
         .select(`
             *,
             patient:patients!patient_id(*),
-            therapist:profiles!therapist_id(*)
+            therapist:profiles!therapist_id(*),
+            membership:patient_memberships!membership_id(id, name, total_sessions, used_sessions, status)
         `)
         .gte('start_time', formatISO(weekStart))
         .lte('start_time', formatISO(weekEnd))
 
-    if (error) throw error
-    return data as Appointment[]
     if (error) throw error
     return data as Appointment[]
 }

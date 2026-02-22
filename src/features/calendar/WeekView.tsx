@@ -938,6 +938,26 @@ export default function WeekView() {
                                     </div>
                                 )}
 
+                                {selectedAppointment.event_type === 'APPOINTMENT' && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <span className="text-gray-400 w-16 text-right font-bold">정보</span>
+                                        <div className="flex items-center gap-2">
+                                            {selectedAppointment.visit_count && (
+                                                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                                    {selectedAppointment.visit_count}회차
+                                                </span>
+                                            )}
+                                            {selectedAppointment.membership && (
+                                                <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                    🎟️ {selectedAppointment.membership.total_sessions - selectedAppointment.membership.used_sessions}/{selectedAppointment.membership.total_sessions}
+                                                </span>
+                                            )}
+                                            {!selectedAppointment.visit_count && !selectedAppointment.membership && (
+                                                <span className="text-xs text-gray-300">-</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                                 {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.patient && patientHistory && (
                                     <div className="flex flex-col gap-1 text-sm pt-2 border-t border-gray-100">
                                         <span className="text-gray-400 font-bold text-xs">환자 메모 히스토리</span>

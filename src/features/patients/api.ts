@@ -7,6 +7,17 @@ import type { Patient } from '@/types/db'
 export type PatientWithDetails = Patient & {
     last_therapist_name?: string
     first_visit?: string
+    next_appointment?: {
+        start_time: string
+        end_time: string
+        therapist_name: string
+    }
+    active_memberships?: {
+        id: string
+        name: string
+        used_sessions: number
+        total_sessions: number
+    }[]
 }
 
 export async function getPatients(search?: string): Promise<PatientWithDetails[]> {
@@ -62,10 +73,56 @@ export async function getPatients(search?: string): Promise<PatientWithDetails[]
         }
     })
 
+    // 다음 예약(미래 가장 가까운 예약) 조회
+    const { data: nextAppts } = await supabase
+        .from('appointments')
+        .select('patient_id, start_time, end_time, therapist_id, profiles!appointments_therapist_id_fkey(full_name)')
+        .in('patient_id', patientIds)
+        .eq('event_type', 'APPOINTMENT')
+        .not('status', 'in', '(CANCELLED,NOSHOW)')
+        .gte('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true })
+
+    // Map: patient_id -> next_appointment
+    const nextApptMap = new Map<string, { start_time: string; end_time: string; therapist_name: string }>()
+    nextAppts?.forEach((na: Record<string, unknown>) => {
+        if (!nextApptMap.has(na.patient_id as string)) {
+            const profiles = na.profiles as { full_name: string } | null
+            nextApptMap.set(na.patient_id as string, {
+                start_time: na.start_time as string,
+                end_time: na.end_time as string,
+                therapist_name: profiles?.full_name || '담당 선생님',
+            })
+        }
+    })
+
+    // 회원권 (ACTIVE 상태) 조회
+    const { data: activeMembs } = await supabase
+        .from('patient_memberships')
+        .select('id, patient_id, name, used_sessions, total_sessions')
+        .in('patient_id', patientIds)
+        .eq('status', 'ACTIVE')
+
+    const activeMembershipsMap = new Map<string, { id: string; name: string; used_sessions: number; total_sessions: number }[]>()
+    activeMembs?.forEach((m: Record<string, unknown>) => {
+        const pId = m.patient_id as string
+        if (!activeMembershipsMap.has(pId)) {
+            activeMembershipsMap.set(pId, [])
+        }
+        activeMembershipsMap.get(pId)!.push({
+            id: m.id as string,
+            name: m.name as string,
+            used_sessions: m.used_sessions as number,
+            total_sessions: m.total_sessions as number,
+        })
+    })
+
     return patients.map(p => ({
         ...p,
         last_therapist_name: therapistMap.get(p.id) || undefined,
         first_visit: firstVisitMap.get(p.id) || undefined,
+        next_appointment: nextApptMap.get(p.id) || undefined,
+        active_memberships: activeMembershipsMap.get(p.id) || undefined,
     })) as PatientWithDetails[]
 }
 
