@@ -74,7 +74,7 @@ export function DraggableAppointmentContent({
             data-appointment="true"
             onClick={onClick}
             className={clsx(
-                "absolute inset-x-1 border-l-[6px] rounded-xl shadow-sm transition-all select-none cursor-grab active:cursor-grabbing group hover:shadow-md hover:brightness-95",
+                "absolute inset-x-1 border-l-[2px] rounded-xl shadow-sm transition-all select-none cursor-grab active:cursor-grabbing group hover:shadow-md hover:brightness-95",
                 config.bg,
                 config.border,
                 config.text,
