@@ -552,7 +552,7 @@ export default function WeekView() {
                 >
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
-                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-40 h-max', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
+                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-50 h-max', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
                                 {timeSlots.map(hour => {
                                     const period = hour < 12 ? 'AM' : 'PM'
@@ -588,7 +588,7 @@ export default function WeekView() {
                                     >
                                         {/* Day Header */}
                                         <div
-                                            className="flex flex-col items-center justify-center border-b sticky top-0 z-30 bg-white/95 backdrop-blur-sm h-12"
+                                            className="flex flex-col items-center justify-center border-b sticky top-0 z-40 bg-white/95 backdrop-blur-sm h-12"
                                         >
                                             <span className={clsx(
                                                 "text-[10px] font-bold",
@@ -637,7 +637,7 @@ export default function WeekView() {
                                                         className={clsx('border-r border-gray-100 relative', isMobile ? 'flex-1 min-w-[100px]' : 'w-[120px]')}
                                                     >
                                                         {/* Therapist sub-header */}
-                                                        <div className="h-6 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-500 sticky z-20 top-12">
+                                                        <div className="h-6 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-500 sticky z-40 top-12">
                                                             {therapist.full_name || therapist.name}
                                                         </div>
 

@@ -19,7 +19,7 @@ export default function LoginPage() {
     const { session } = useAuth()
     const navigate = useNavigate()
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<'admin' | 'member'>('member')
+    const [activeTab, setActiveTab] = useState<'admin' | 'member'>('admin')
 
     useEffect(() => {
         if (session) {

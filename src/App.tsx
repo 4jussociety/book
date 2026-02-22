@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './features/auth/AuthProvider'
 import LoginPage from './features/auth/LoginPage'
 import RequireAuth from './components/layout/RequireAuth'
+import RequireOwner from './features/auth/RequireOwner'
 import CalendarPage from './features/calendar/CalendarPage'
 import PatientList from './features/patients/PatientList'
 import StatisticsPage from './features/statistics/StatisticsPage'
@@ -27,10 +28,14 @@ function App() {
                 <Route path="/" element={<Navigate to="/calendar" replace />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/patients" element={<PatientList />} />
-                <Route path="/statistics" element={<StatisticsPage />} />
-                <Route path="/members" element={<MemberManagement />} />
                 <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/admin" element={<AdminPage />} />
+
+                {/* 관리자 전용 라우트 */}
+                <Route element={<RequireOwner />}>
+                  <Route path="/statistics" element={<StatisticsPage />} />
+                  <Route path="/members" element={<MemberManagement />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                </Route>
               </Route>
             </Route>
           </Routes>
