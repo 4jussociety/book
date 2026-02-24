@@ -14,9 +14,9 @@ import type { Profile } from '@/types/db'
 import { fetchStats, DURATION_BUCKETS, type DurationPrice } from './api'
 import {
     Loader2, Download, Calendar, TrendingUp, CheckCircle2, XCircle,
-    AlertTriangle, UserPlus, ChevronLeft, ChevronRight, User, CircleDollarSign, Settings, BadgePercent
+    AlertTriangle, UserPlus, ChevronLeft, ChevronRight, User, CircleDollarSign
 } from 'lucide-react'
-import { useProfiles, useUpdateProfile } from '../calendar/useCalendar'
+import { useProfiles } from '../calendar/useCalendar'
 import { useAuth } from '../auth/AuthContext'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 
@@ -49,7 +49,6 @@ const BUCKET_BAR_COLORS: Record<number, string> = {
 export default function StatisticsPage() {
     const { profile } = useAuth()
     const { data: profiles } = useProfiles(profile?.system_id)
-    const updateProfileMutation = useUpdateProfile()
     const isMobile = useIsMobile()
 
     const [period, setPeriod] = useState<PeriodType>('week')
@@ -68,28 +67,6 @@ export default function StatisticsPage() {
     useEffect(() => {
         setPrices(loadPricesFromProfile(profile))
     }, [profile])
-
-    // 인센티브 설정 상태
-    const [editingIncentiveId, setEditingIncentiveId] = useState<string | null>(null)
-    const [incentiveValue, setIncentiveValue] = useState('')
-
-    const handleUpdateIncentive = async (id: string) => {
-        const val = parseFloat(incentiveValue)
-        if (isNaN(val) || val < 0 || val > 100) {
-            alert('0~100 사이의 숫자를 입력해주세요.')
-            return
-        }
-        try {
-            await updateProfileMutation.mutateAsync({
-                id,
-                updates: { incentive_percentage: val }
-            })
-            setEditingIncentiveId(null)
-        } catch (e) {
-            console.error('Failed to update incentive', e)
-            alert('업데이트 실패')
-        }
-    }
 
     useEffect(() => {
         if (period === 'week') {
@@ -267,51 +244,6 @@ export default function StatisticsPage() {
                                         </span>
                                     )}
                                 </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        setEditingIncentiveId(p.id)
-                                        setIncentiveValue(p.incentive_percentage?.toString() || '0')
-                                    }}
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover/item:opacity-100 transition-all z-10"
-                                >
-                                    <Settings className="w-3.5 h-3.5" />
-                                </button>
-
-                                {/* 인센티브 설정 팝오버 (간이) */}
-                                {editingIncentiveId === p.id && (
-                                    <div className="absolute left-full top-0 ml-2 bg-white p-3 rounded-xl shadow-xl border border-gray-100 w-48 z-50 animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-                                        <h4 className="text-xs font-black text-gray-900 mb-2 flex items-center gap-1">
-                                            <BadgePercent className="w-3.5 h-3.5 text-blue-600" />
-                                            인센티브 비율 설정
-                                        </h4>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <input
-                                                autoFocus
-                                                type="number"
-                                                value={incentiveValue}
-                                                onChange={e => setIncentiveValue(e.target.value)}
-                                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
-                                                placeholder="%"
-                                            />
-                                            <span className="text-xs font-bold text-gray-500">%</span>
-                                        </div>
-                                        <div className="flex gap-1">
-                                            <button
-                                                onClick={() => setEditingIncentiveId(null)}
-                                                className="flex-1 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-[10px] font-bold hover:bg-gray-100"
-                                            >
-                                                취소
-                                            </button>
-                                            <button
-                                                onClick={() => handleUpdateIncentive(p.id)}
-                                                className="flex-1 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700"
-                                            >
-                                                저장
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>

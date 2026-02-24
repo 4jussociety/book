@@ -12,7 +12,7 @@ type GuestRequest = {
     created_at: string
     user_id: string
     role?: 'instructor' | 'staff' | string
-    profiles: { full_name: string; email: string; phone: string | null; role: string | null } | null
+    profiles: { full_name: string; email: string; phone: string | null; role: string | null; incentive_percentage?: number } | null
 }
 
 type RoleOption = 'instructor' | 'staff'
@@ -36,9 +36,13 @@ export default function MemberManagement() {
 
     // 인라인 편집 상태
     const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
-    const [editForm, setEditForm] = useState({ name: '', phone: '' })
+    const [editForm, setEditForm] = useState({ name: '', phone: '', incentive: '0' })
 
-
+    // 비밀번호 초기화 모달 상태
+    const [showResetModal, setShowResetModal] = useState(false)
+    const [resetTargetUser, setResetTargetUser] = useState<GuestRequest | null>(null)
+    const [newPassword, setNewPassword] = useState('')
+    const [isResetting, setIsResetting] = useState(false)
     const fetchMembers = useCallback(async () => {
         if (!profile?.system_id) return
         setIsLoading(true)
@@ -55,7 +59,7 @@ export default function MemberManagement() {
                 .from('system_members')
                 .select(`
                     *,
-                    profiles:user_id ( full_name, email )
+                    profiles:user_id ( full_name, email, phone, incentive_percentage )
                 `)
                 .eq('system_id', profile.system_id)
                 .order('created_at', { ascending: false })
@@ -93,7 +97,8 @@ export default function MemberManagement() {
         setEditingMemberId(member.user_id)
         setEditForm({
             name: member.profiles?.full_name || '',
-            phone: member.profiles?.phone || ''
+            phone: member.profiles?.phone || '',
+            incentive: member.profiles?.incentive_percentage?.toString() || '0'
         })
     }
 
@@ -106,7 +111,8 @@ export default function MemberManagement() {
                 .from('profiles')
                 .update({
                     full_name: editForm.name.trim(),
-                    phone: editForm.phone.trim() || null
+                    phone: editForm.phone.trim() || null,
+                    incentive_percentage: parseFloat(editForm.incentive) || 0
                 })
                 .eq('id', editingMemberId)
 
@@ -131,6 +137,55 @@ export default function MemberManagement() {
             saveEditing()
         } else if (e.key === 'Escape') {
             cancelEditing()
+        }
+    }
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!profile?.system_id || !resetTargetUser) return
+
+        if (newPassword.length < 6) {
+            alert('비밀번호는 최소 6자 이상이어야 합니다.')
+            return
+        }
+
+        setIsResetting(true)
+        try {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+            if (sessionError || !sessionData.session) {
+                throw new Error('로그인 세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.')
+            }
+
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+            const response = await fetch(`${supabaseUrl}/functions/v1/update-member-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session.access_token}`,
+                    'apikey': supabaseAnonKey
+                },
+                body: JSON.stringify({
+                    systemId: profile.system_id,
+                    targetUserId: resetTargetUser.user_id,
+                    newPassword: newPassword
+                })
+            })
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => null)
+                throw new Error(errData?.error || `비밀번호 변경 실패 (상태 코드: ${response.status})`)
+            }
+
+            alert(`${resetTargetUser.profiles?.full_name} 님의 비밀번호가 성공적으로 변경되었습니다.`)
+            setShowResetModal(false)
+            setNewPassword('')
+            setResetTargetUser(null)
+        } catch (err: any) {
+            console.error('Error resetting password:', err)
+            alert(err.message)
+        } finally {
+            setIsResetting(false)
         }
     }
 
@@ -220,7 +275,7 @@ export default function MemberManagement() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-4 sm:p-8">
+        <div className="w-full max-w-7xl mx-auto p-4 sm:p-8">
             {/* 헤더 */}
             <div className="flex items-center justify-between mb-6 md:mb-8">
                 <div className="flex items-center gap-3">
@@ -270,6 +325,7 @@ export default function MemberManagement() {
                                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">이름</th>
                                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">가입 이메일(ID)</th>
                                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">연락처</th>
+                                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-center whitespace-nowrap">인센티브(%)</th>
                                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap">현재 역할</th>
                                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-right whitespace-nowrap">관리</th>
                             </tr>
@@ -277,7 +333,7 @@ export default function MemberManagement() {
                         <tbody className="divide-y divide-gray-50">
                             {members.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <Users className="w-8 h-8 opacity-20" />
                                             <span>아직 등록된 멤버가 없습니다.<br />[멤버 추가 발급] 버튼을 눌러 직원을 등록해주세요.</span>
@@ -342,6 +398,31 @@ export default function MemberManagement() {
                                                     />
                                                 ) : (
                                                     member.profiles?.phone || <span className="text-gray-300">미입력</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                {member.role === 'instructor' ? (
+                                                    isEditing ? (
+                                                        <div className="inline-flex items-center gap-1">
+                                                            <input
+                                                                type="number"
+                                                                value={editForm.incentive}
+                                                                onChange={(e) => setEditForm({ ...editForm, incentive: e.target.value })}
+                                                                onKeyDown={handleEditKeyDown}
+                                                                className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
+                                                                min="0"
+                                                                max="100"
+                                                                placeholder="0"
+                                                            />
+                                                            <span className="text-xs text-gray-500 font-bold">%</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                                                            {member.profiles?.incentive_percentage || 0}%
+                                                        </span>
+                                                    )
+                                                ) : (
+                                                    <span className="text-gray-300 text-xs">-</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -430,6 +511,20 @@ export default function MemberManagement() {
                                                         </>
                                                     ) : (
                                                         <>
+                                                            {member.role !== 'owner' && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setResetTargetUser(member)
+                                                                        setNewPassword('')
+                                                                        setShowResetModal(true)
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-yellow-50 text-yellow-600 hover:bg-yellow-600 hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                                                    title="비밀번호 초기화"
+                                                                >
+                                                                    <Key className="w-3.5 h-3.5" />
+                                                                    비번초기화
+                                                                </button>
+                                                            )}
                                                             {member.role !== 'owner' && (
                                                                 <button
                                                                     onClick={() => startEditing(member)}
@@ -573,6 +668,60 @@ export default function MemberManagement() {
                                     )}
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 비밀번호 변경 모달 */}
+            {showResetModal && resetTargetUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <Key className="w-5 h-5 text-yellow-600" />
+                                비밀번호 변경
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowResetModal(false)
+                                    setResetTargetUser(null)
+                                }}
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleResetPassword} className="p-6">
+                            <div className="mb-6">
+                                <p className="text-sm text-gray-600 mb-4">
+                                    <span className="font-bold text-gray-900">{resetTargetUser.profiles?.full_name}</span> 님의 접속 비밀번호를 강제로 초기화 및 변경합니다.
+                                </p>
+
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">새 비밀번호 (6자 이상)</label>
+                                <input
+                                    type="text"
+                                    required
+                                    minLength={6}
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all sm:text-sm"
+                                    placeholder="새로운 비밀번호 확인"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isResetting || newPassword.length < 6}
+                                className="w-full py-3 bg-yellow-500 text-white rounded-xl font-bold text-sm hover:bg-yellow-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                            >
+                                {isResetting ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> 저장 중...</>
+                                ) : (
+                                    <><Check className="w-4 h-4" />새 비밀번호 적용</>
+                                )}
+                            </button>
                         </form>
                     </div>
                 </div>
