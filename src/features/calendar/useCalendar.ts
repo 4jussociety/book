@@ -1,5 +1,5 @@
 ﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAppointments, createAppointment, getClients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments, updateClient, getAppointmentsByClient } from './api'
+import { getAppointments, createAppointment, getClients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments, updateClient, getAppointmentsByClient, getMembershipPackages } from './api'
 import { createClient } from '@/features/clients/api'
 
 /** 고객 목록 조회 훅 */
@@ -9,7 +9,15 @@ export function useClients() {
         queryFn: () => getClients(),
     })
 }
-// ... (omitted) ...
+
+/** 패키지 상품 목록 조회 훅 */
+export function useMembershipPackages(systemId?: string | null) {
+    return useQuery({
+        queryKey: ['membershipPackages', systemId],
+        queryFn: () => getMembershipPackages(systemId || undefined),
+        enabled: !!systemId,
+    })
+}
 
 /** 월간 예약 목록 조회 훅 (미니 달력용) */
 

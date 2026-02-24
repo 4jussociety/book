@@ -152,6 +152,20 @@ CREATE TABLE IF NOT EXISTS message_templates (
     UNIQUE(system_id, template_name)
 );
 
+-- 8. Membership Packages Table (사전에 세팅된 회원권/패키지 상품 목록)
+CREATE TABLE IF NOT EXISTS membership_packages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    system_id UUID NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    session_type TEXT DEFAULT 'normal',
+    total_sessions INT NOT NULL,
+    default_price INT NOT NULL DEFAULT 0,
+    valid_days INT, -- NULL이면 무제한
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 -- 9. Client Memberships Table (회원권/다회권 관리)
 CREATE TABLE IF NOT EXISTS client_memberships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -202,6 +216,7 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE membership_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_memberships ENABLE ROW LEVEL SECURITY;
 
 -- Helper Functions
@@ -459,6 +474,11 @@ FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 DROP TRIGGER IF EXISTS tr_templates_updated ON message_templates;
 CREATE TRIGGER tr_templates_updated
 BEFORE UPDATE ON message_templates
+FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+DROP TRIGGER IF EXISTS tr_membership_packages_updated ON membership_packages;
+CREATE TRIGGER tr_membership_packages_updated
+BEFORE UPDATE ON membership_packages
 FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 
 --------------------------------------------------------------------------------

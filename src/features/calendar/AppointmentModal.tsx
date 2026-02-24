@@ -3,12 +3,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { formatKST, parseKSTDateTime } from '@/lib/dateUtils'
-import { useClients, useProfiles, useCreateAppointment, useUpdateAppointment, useClientAppointments } from './useCalendar'
-import { useQuery } from '@tanstack/react-query'
+import { useClients, useProfiles, useCreateAppointment, useUpdateAppointment, useClientAppointments, useMembershipPackages } from './useCalendar'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getActiveMemberships } from '@/features/clients/membershipsApi'
 import ClientForm from '@/features/clients/ClientForm'
-import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight } from 'lucide-react'
+import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
+import { supabase } from '@/lib/supabase'
 import type { Appointment, Client } from '@/types/db'
 
 
@@ -47,6 +48,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     const [step, setStep] = useState<ModalStep>('TYPE_SELECT')
     const [selectedClient, setselectedClient] = useState<Client | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
+
+    // Quick Package Purchase State
+    const [showPackageForm, setShowPackageForm] = useState(false)
+    const [selectedPackageId, setSelectedPackageId] = useState('')
+    const [packageDiscount, setPackageDiscount] = useState<number>(0)
+    const [isPurchasingPackage, setIsPurchasingPackage] = useState(false)
+    const queryClient = useQueryClient()
 
     const {
         register,
@@ -121,6 +129,9 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     membership_id: '',
                     session_type: 'normal',
                 })
+                setShowPackageForm(false)
+                setSelectedPackageId('')
+                setPackageDiscount(0)
 
                 if (initialData) {
                     // ... (existing initialData logic)
@@ -153,6 +164,52 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         queryFn: () => getActiveMemberships(selectedClient!.id),
         enabled: !!selectedClient?.id,
     })
+
+    // 시스템의 전체 회원권 패키지 조회
+    const { data: membershipPackages } = useMembershipPackages(myProfile?.system_id)
+
+    // 회원권 즉시 발급 핸들러
+    const handlePurchasePackage = async () => {
+        if (!selectedClient || !selectedPackageId || !myProfile?.system_id) return
+        const pkg = membershipPackages?.find(p => p.id === selectedPackageId)
+        if (!pkg) return
+
+        setIsPurchasingPackage(true)
+        try {
+            const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
+
+            const { data, error } = await supabase
+                .from('client_memberships')
+                .insert({
+                    system_id: myProfile.system_id,
+                    client_id: selectedClient.id,
+                    name: pkg.name,
+                    session_type: pkg.session_type,
+                    total_sessions: pkg.total_sessions,
+                    used_sessions: 0,
+                    total_amount: finalPrice,
+                    status: 'ACTIVE',
+                    created_by: myProfile.id
+                })
+                .select('id')
+                .single()
+
+            if (error) throw error
+
+            // 발급 성공 시, activeMemberships 캐시 무효화 및 해당 회원권 자동 선택
+            await queryClient.invalidateQueries({ queryKey: ['activeMemberships', selectedClient.id] })
+            setValue('membership_id', data.id)
+            setShowPackageForm(false)
+            setSelectedPackageId('')
+            setPackageDiscount(0)
+
+        } catch (error) {
+            console.error('Package purchase error:', error)
+            alert('회원권 발급에 실패했습니다.')
+        } finally {
+            setIsPurchasingPackage(false)
+        }
+    }
 
     const onSubmit = async (data: AppointmentForm) => {
         if (!myProfile?.system_id) {
@@ -392,20 +449,95 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 )}
                                             </div>
                                             {/* 회원권 선택 (고객이 활성화된 회원권이 있을 경우) */}
-                                            {selectedClient && activeMemberships && activeMemberships.length > 0 && (
-                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                                    <label className="block text-[10px] font-black text-amber-600 mb-1 ml-1 flex items-center gap-1">🎟️ 회원권 적용</label>
-                                                    <select
-                                                        {...register('membership_id')}
-                                                        className="w-full px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
-                                                    >
-                                                        <option value="">적용 안 함 (일반 예약)</option>
-                                                        {activeMemberships.map(m => (
-                                                            <option key={m.id} value={m.id}>
-                                                                {m.name} ({m.total_sessions - m.used_sessions}회 남음)
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                            {selectedClient && (
+                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                                                    <div className="flex justify-between items-center mb-1 ml-1">
+                                                        <label className="block text-[10px] font-black text-amber-600 flex items-center gap-1">🎟️ 회원권 적용</label>
+                                                        {!editingAppointment && membershipPackages && membershipPackages.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPackageForm(!showPackageForm)}
+                                                                className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${showPackageForm ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                                                            >
+                                                                {showPackageForm ? '취소' : '+ 새 회원권 발급'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {showPackageForm ? (
+                                                        <div className="space-y-2 mt-2 p-3 bg-white border border-amber-200 rounded-lg animate-in slide-in-from-top-1">
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">패키지 상품 선택</label>
+                                                                <select
+                                                                    value={selectedPackageId}
+                                                                    onChange={e => {
+                                                                        setSelectedPackageId(e.target.value)
+                                                                        setPackageDiscount(0) // 새 상품 선택시 할인 초기화
+                                                                    }}
+                                                                    className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                                                                >
+                                                                    <option value="">패키지를 선택하세요</option>
+                                                                    {membershipPackages?.filter(p => p.is_active).map(pkg => (
+                                                                        <option key={pkg.id} value={pkg.id}>
+                                                                            {pkg.name} ({pkg.total_sessions}회 / {pkg.default_price.toLocaleString()}원)
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+
+                                                            {selectedPackageId && membershipPackages?.find(p => p.id === selectedPackageId) && (() => {
+                                                                const pkg = membershipPackages.find(p => p.id === selectedPackageId)!
+                                                                const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
+                                                                return (
+                                                                    <div className="bg-amber-50/50 p-2 rounded border border-amber-100/50 space-y-2">
+                                                                        <div className="flex justify-between text-[10px]">
+                                                                            <span className="text-gray-500 font-bold">기본 금액:</span>
+                                                                            <span className="font-bold text-gray-900">{pkg.default_price.toLocaleString()}원</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center text-[10px]">
+                                                                            <span className="text-gray-500 font-bold">현장 할인:</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={packageDiscount || ''}
+                                                                                    onChange={e => setPackageDiscount(parseInt(e.target.value) || 0)}
+                                                                                    className="w-20 px-1.5 py-1 text-right border border-gray-200 rounded text-xs font-bold outline-none focus:border-amber-400"
+                                                                                    placeholder="0"
+                                                                                />
+                                                                                <span className="font-bold text-gray-600">원</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex justify-between text-[11px] pt-1 border-t border-amber-100">
+                                                                            <span className="text-amber-700 font-black">최종 결제:</span>
+                                                                            <span className="font-black text-amber-700">{finalPrice.toLocaleString()}원</span>
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handlePurchasePackage}
+                                                                            disabled={isPurchasingPackage}
+                                                                            className="w-full mt-2 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                                                                        >
+                                                                            {isPurchasingPackage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                                                            즉시 발급 및 적용
+                                                                        </button>
+                                                                    </div>
+                                                                )
+                                                            })()}
+                                                        </div>
+                                                    ) : (
+                                                        <select
+                                                            {...register('membership_id')}
+                                                            className="w-full px-3 py-2 bg-white border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer shadow-sm"
+                                                        >
+                                                            <option value="">적용 안 함 (일반 예약)</option>
+                                                            {activeMemberships?.map(m => (
+                                                                <option key={m.id} value={m.id}>
+                                                                    {m.name} ({m.total_sessions - m.used_sessions}회 남음)
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    )}
                                                 </div>
                                             )}
 

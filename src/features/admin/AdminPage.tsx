@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert, Trash2 } from 'lucide-react'
+import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert, Trash2, UserCheck, X } from 'lucide-react'
 
 const DURATION_BUCKETS = [30, 40, 50, 60]
 type DurationPrice = { durationMin: number; sessionType: import('@/types/db').SessionType; priceKrw: number }
@@ -15,6 +15,16 @@ const defaultPrices = (): DurationPrice[] => [
     ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option2' as const, priceKrw: 0 })),
     ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option3' as const, priceKrw: 0 })),
 ]
+
+type PackageItem = {
+    id?: string // 신규 추가시 없음
+    name: string
+    session_type: string
+    total_sessions: number
+    default_price: number
+    valid_days: number | null
+}
+
 
 export default function AdminPage() {
     const { user, profile, refreshProfile } = useAuth()
@@ -29,6 +39,8 @@ export default function AdminPage() {
     const [resetConfirm, setResetConfirm] = useState('')
     const [isResetting, setIsResetting] = useState(false)
     const [prices, setPrices] = useState<DurationPrice[]>(defaultPrices())
+    const [packages, setPackages] = useState<PackageItem[]>([])
+    const [deletedPackageIds, setDeletedPackageIds] = useState<string[]>([])
 
     useEffect(() => {
         if (profile?.is_owner) {
@@ -49,6 +61,26 @@ export default function AdminPage() {
                 })
                 setPrices(newPrices)
             }
+
+            // 패키지 상품 로드
+            const loadPackages = async () => {
+                const { data } = await supabase
+                    .from('membership_packages')
+                    .select('*')
+                    .eq('system_id', profile.system_id)
+                    .order('created_at', { ascending: true })
+                if (data) {
+                    setPackages(data.map(d => ({
+                        id: d.id,
+                        name: d.name,
+                        session_type: d.session_type,
+                        total_sessions: d.total_sessions,
+                        default_price: d.default_price,
+                        valid_days: d.valid_days
+                    })))
+                }
+            }
+            loadPackages()
         }
     }, [profile])
 
@@ -102,6 +134,34 @@ export default function AdminPage() {
                 }, { onConflict: 'system_id,template_name' })
 
             if (templateError) throw templateError
+
+            // 4. 패키지 상품 저장
+            // 4-1. 삭제된 패키지 처리
+            if (deletedPackageIds.length > 0) {
+                const { error: delError } = await supabase
+                    .from('membership_packages')
+                    .delete()
+                    .in('id', deletedPackageIds)
+                if (delError) throw delError
+            }
+
+            // 4-2. 추가/수정된 패키지 처리
+            const upsertPackages = packages.map(pkg => ({
+                id: pkg.id || undefined, // undefined면 새로 생성 (uuid_generate_v4 작동)
+                system_id: profile.system_id!,
+                name: pkg.name,
+                session_type: pkg.session_type,
+                total_sessions: pkg.total_sessions,
+                default_price: pkg.default_price,
+                valid_days: pkg.valid_days
+            }))
+
+            if (upsertPackages.length > 0) {
+                const { error: pkgUpsertError } = await supabase
+                    .from('membership_packages')
+                    .upsert(upsertPackages)
+                if (pkgUpsertError) throw pkgUpsertError
+            }
 
             alert('관리자 설정이 성공적으로 저장되었습니다.')
             window.location.reload()
@@ -158,6 +218,24 @@ export default function AdminPage() {
         const priceKrw = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0
         const updated = prices.map(p => (p.durationMin === durationMin && p.sessionType === sessionType) ? { ...p, priceKrw } : p)
         setPrices(updated)
+    }
+
+    const handleAddPackage = () => {
+        setPackages([...packages, { name: '', session_type: 'normal', total_sessions: 10, default_price: 0, valid_days: null }])
+    }
+
+    const handleUpdatePackage = (index: number, field: keyof PackageItem, value: any) => {
+        const newPackages = [...packages]
+        newPackages[index] = { ...newPackages[index], [field]: value }
+        setPackages(newPackages)
+    }
+
+    const handleRemovePackage = (index: number) => {
+        const pkg = packages[index]
+        if (pkg.id) {
+            setDeletedPackageIds([...deletedPackageIds, pkg.id])
+        }
+        setPackages(packages.filter((_, i) => i !== index))
     }
 
     if (!profile) {
@@ -309,6 +387,102 @@ export default function AdminPage() {
                         </tbody>
                     </table>
                 </div>
+            </Section>
+
+            {/* 패키지/상품 설정 (Membership Packages) */}
+            <Section icon={<UserCheck className="w-5 h-5" />} iconBg="bg-teal-50" iconColor="text-teal-600" title="회원권 상품(패키지) 설정">
+                <p className="text-xs text-gray-400 mb-4">예약 화면에서 고객에게 즉시 발급할 수 있는 회원권 상품(패키지) 메뉴팩을 무제한으로 등록해 둘 수 있습니다.</p>
+
+                <div className="overflow-x-auto rounded-xl border border-gray-200 mb-3">
+                    <table className="w-full text-left bg-white min-w-[700px]">
+                        <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 w-[22%]">상품명 (예: 체형교정 10회권)</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[15%]">적용 수업</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[12%]">총 횟수</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[18%]">기본 결제금액</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[15%]">유효기간 (일)</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[10%]">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {packages.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 font-medium bg-gray-50/50">
+                                        등록된 상품이 없습니다. 하단의 [+ 새 상품 추가] 버튼을 눌러 추가해주세요.
+                                    </td>
+                                </tr>
+                            ) : (
+                                packages.map((pkg, index) => (
+                                    <tr key={index} className="hover:bg-teal-50/20 transition-colors">
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text" value={pkg.name} onChange={e => handleUpdatePackage(index, 'name', e.target.value)}
+                                                placeholder="상품명 입력"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all placeholder-gray-300"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <select
+                                                value={pkg.session_type} onChange={e => handleUpdatePackage(index, 'session_type', e.target.value)}
+                                                className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all cursor-pointer"
+                                            >
+                                                <option value="normal">일반 수업</option>
+                                                {option1Name && <option value="option1">{option1Name}</option>}
+                                                {option2Name && <option value="option2">{option2Name}</option>}
+                                                {option3Name && <option value="option3">{option3Name}</option>}
+                                            </select>
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <div className="flex items-center">
+                                                <input
+                                                    type="number" min="1" value={pkg.total_sessions || ''} onChange={e => handleUpdatePackage(index, 'total_sessions', parseInt(e.target.value) || 0)}
+                                                    className="w-full text-center px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
+                                                />
+                                                <span className="ml-1 text-xs text-gray-500 font-bold shrink-0">회</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <div className="flex items-center">
+                                                <input
+                                                    type="text" inputMode="numeric"
+                                                    value={pkg.default_price ? pkg.default_price.toLocaleString() : ''}
+                                                    onChange={e => handleUpdatePackage(index, 'default_price', parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
+                                                    placeholder="0"
+                                                    className="w-full text-right px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
+                                                />
+                                                <span className="ml-1 text-xs text-gray-500 font-bold shrink-0">원</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <div className="flex items-center">
+                                                <input
+                                                    type="number" min="1" value={pkg.valid_days || ''} onChange={e => handleUpdatePackage(index, 'valid_days', e.target.value ? parseInt(e.target.value) : null)}
+                                                    placeholder="무제한"
+                                                    className="w-full text-center px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all placeholder-gray-400"
+                                                />
+                                                <span className="ml-1 text-xs text-gray-500 font-bold shrink-0">일</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-2 text-center">
+                                            <button onClick={() => handleRemovePackage(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors inline-block tooltip-trigger">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <button
+                    onClick={handleAddPackage}
+                    className="w-full py-2.5 border-2 border-dashed border-teal-200 text-teal-600 font-bold rounded-xl hover:bg-teal-50 hover:border-teal-300 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                    + 새 상품 추가
+                </button>
+
             </Section>
 
             {/* 예약 문자 설정 */}

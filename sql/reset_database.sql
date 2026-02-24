@@ -8,6 +8,7 @@ BEGIN;
 
 -- 1. 의존성이 있는 테이블들을 역순으로 삭제
 DROP TABLE IF EXISTS client_memberships CASCADE;
+DROP TABLE IF EXISTS membership_packages CASCADE;
 DROP TABLE IF EXISTS pricing_settings CASCADE;
 DROP TABLE IF EXISTS message_templates CASCADE;
 DROP TABLE IF EXISTS appointments CASCADE;

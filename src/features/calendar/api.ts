@@ -23,6 +23,18 @@ export async function getAppointments(date: Date) {
     return data as Appointment[]
 }
 
+export async function getMembershipPackages(systemId?: string) {
+    if (!systemId) return []
+    const { data, error } = await supabase
+        .from('membership_packages')
+        .select('*')
+        .eq('system_id', systemId)
+        .order('created_at', { ascending: true })
+
+    if (error) throw error
+    return data as import('@/types/db').MembershipPackage[]
+}
+
 export async function getAppointmentsByClient(clientId: string) {
     const { data, error } = await supabase
         .from('appointments')

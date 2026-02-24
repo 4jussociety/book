@@ -65,6 +65,19 @@ export type MessageTemplate = {
     updated_at: string
 }
 
+export type MembershipPackage = {
+    id: string
+    system_id: string
+    name: string
+    session_type: SessionType
+    total_sessions: number
+    default_price: number
+    valid_days: number | null
+    is_active: boolean
+    created_at: string
+    updated_at: string
+}
+
 export type ClientMembership = {
     id: string
     system_id: string
