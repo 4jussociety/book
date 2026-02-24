@@ -178,18 +178,26 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         try {
             const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
 
+            // Calculate expiration date if valid_days exists
+            let expirationDate = null;
+            if (pkg.valid_days) {
+                const date = new Date();
+                date.setDate(date.getDate() + pkg.valid_days);
+                expirationDate = date.toISOString().split('T')[0];
+            }
+
             const { data, error } = await supabase
                 .from('client_memberships')
                 .insert({
                     system_id: myProfile.system_id,
                     client_id: selectedClient.id,
                     name: pkg.name,
-                    session_type: pkg.session_type,
                     total_sessions: pkg.total_sessions,
                     used_sessions: 0,
-                    total_amount: finalPrice,
-                    status: 'ACTIVE',
-                    created_by: myProfile.id
+                    amount_paid: finalPrice,
+                    payment_date: new Date().toISOString().split('T')[0],
+                    expiration_date: expirationDate,
+                    status: 'ACTIVE'
                 })
                 .select('id')
                 .single()
