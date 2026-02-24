@@ -22,6 +22,7 @@ const appointmentSchema = z.object({
     event_type: z.enum(['APPOINTMENT', 'BLOCK']),
     block_title: z.string().optional(),
     membership_id: z.string().optional().nullable(),
+    session_type: z.enum(['normal', 'option1', 'option2', 'option3']),
 })
 
 type AppointmentForm = z.infer<typeof appointmentSchema>
@@ -58,6 +59,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         resolver: zodResolver(appointmentSchema),
         defaultValues: {
             event_type: 'APPOINTMENT',
+            session_type: 'normal',
         }
     })
 
@@ -85,6 +87,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 setValue('memo', editingAppointment.note || '')
                 setValue('instructor_id', editingAppointment.instructor_id)
                 setValue('membership_id', editingAppointment.membership_id || '')
+                setValue('session_type', editingAppointment.session_type || 'normal')
 
                 const start = new Date(editingAppointment.start_time)
                 const end = new Date(editingAppointment.end_time)
@@ -116,6 +119,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     block_title: '',
                     memo: '',
                     membership_id: '',
+                    session_type: 'normal',
                 })
 
                 if (initialData) {
@@ -185,6 +189,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         note: data.memo, // 예약 메모에도 저장 (선택 사항)
                         block_title: data.block_title,
                         membership_id: data.membership_id || null,
+                        session_type: data.session_type,
                         version: editingAppointment.version,
                     }
                 })
@@ -199,6 +204,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     note: data.memo, // 예약 메모에도 저장
                     block_title: data.block_title,
                     membership_id: data.membership_id || null,
+                    session_type: data.session_type,
                     system_id: myProfile?.system_id,
                 })
             }
@@ -399,6 +405,22 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                                 {m.name} ({m.total_sessions - m.used_sessions}회 남음)
                                                             </option>
                                                         ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {/* 수업 종류(Session Type) 선택 */}
+                                            {eventType === 'APPOINTMENT' && (
+                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                                    <label className="block text-[10px] font-black text-blue-600 mb-1 ml-1 flex items-center gap-1">🏷️ 수업 종류</label>
+                                                    <select
+                                                        {...register('session_type')}
+                                                        className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
+                                                    >
+                                                        <option value="normal">일반 수업</option>
+                                                        {myProfile?.option1_name && <option value="option1">{myProfile.option1_name}</option>}
+                                                        {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
+                                                        {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
                                                     </select>
                                                 </div>
                                             )}

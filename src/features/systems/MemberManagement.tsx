@@ -12,7 +12,16 @@ type GuestRequest = {
     created_at: string
     user_id: string
     role?: 'instructor' | 'staff' | string
-    profiles: { full_name: string; email: string; phone: string | null; role: string | null; incentive_percentage?: number } | null
+    profiles: {
+        full_name: string;
+        email: string;
+        phone: string | null;
+        role: string | null;
+        incentive_percentage?: number;
+        incentive_percentage_opt1?: number;
+        incentive_percentage_opt2?: number;
+        incentive_percentage_opt3?: number;
+    } | null
 }
 
 type RoleOption = 'instructor' | 'staff'
@@ -36,7 +45,7 @@ export default function MemberManagement() {
 
     // 인라인 편집 상태
     const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
-    const [editForm, setEditForm] = useState({ name: '', phone: '', incentive: '0' })
+    const [editForm, setEditForm] = useState({ name: '', phone: '', incentive: '0', incentiveOpt1: '0', incentiveOpt2: '0', incentiveOpt3: '0' })
 
     // 비밀번호 초기화 모달 상태
     const [showResetModal, setShowResetModal] = useState(false)
@@ -59,7 +68,7 @@ export default function MemberManagement() {
                 .from('system_members')
                 .select(`
                     *,
-                    profiles:user_id ( full_name, email, phone, incentive_percentage )
+                    profiles:user_id ( full_name, email, phone, incentive_percentage, incentive_percentage_opt1, incentive_percentage_opt2, incentive_percentage_opt3 )
                 `)
                 .eq('system_id', profile.system_id)
                 .order('created_at', { ascending: false })
@@ -98,7 +107,10 @@ export default function MemberManagement() {
         setEditForm({
             name: member.profiles?.full_name || '',
             phone: member.profiles?.phone || '',
-            incentive: member.profiles?.incentive_percentage?.toString() || '0'
+            incentive: member.profiles?.incentive_percentage?.toString() || '0',
+            incentiveOpt1: member.profiles?.incentive_percentage_opt1?.toString() || '0',
+            incentiveOpt2: member.profiles?.incentive_percentage_opt2?.toString() || '0',
+            incentiveOpt3: member.profiles?.incentive_percentage_opt3?.toString() || '0',
         })
     }
 
@@ -112,7 +124,10 @@ export default function MemberManagement() {
                 .update({
                     full_name: editForm.name.trim(),
                     phone: editForm.phone.trim() || null,
-                    incentive_percentage: parseFloat(editForm.incentive) || 0
+                    incentive_percentage: parseFloat(editForm.incentive) || 0,
+                    incentive_percentage_opt1: parseFloat(editForm.incentiveOpt1) || 0,
+                    incentive_percentage_opt2: parseFloat(editForm.incentiveOpt2) || 0,
+                    incentive_percentage_opt3: parseFloat(editForm.incentiveOpt3) || 0,
                 })
                 .eq('id', editingMemberId)
 
@@ -403,23 +418,103 @@ export default function MemberManagement() {
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
                                                 {member.role === 'instructor' ? (
                                                     isEditing ? (
-                                                        <div className="inline-flex items-center gap-1">
-                                                            <input
-                                                                type="number"
-                                                                value={editForm.incentive}
-                                                                onChange={(e) => setEditForm({ ...editForm, incentive: e.target.value })}
-                                                                onKeyDown={handleEditKeyDown}
-                                                                className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
-                                                                min="0"
-                                                                max="100"
-                                                                placeholder="0"
-                                                            />
-                                                            <span className="text-xs text-gray-500 font-bold">%</span>
+                                                        <div className="flex flex-col gap-2">
+                                                            <div className="inline-flex items-center gap-2 justify-between">
+                                                                <span className="text-xs text-gray-500 font-bold whitespace-nowrap">일반:</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editForm.incentive}
+                                                                        onChange={(e) => setEditForm({ ...editForm, incentive: e.target.value })}
+                                                                        onKeyDown={handleEditKeyDown}
+                                                                        className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
+                                                                        min="0"
+                                                                        max="100"
+                                                                        placeholder="0"
+                                                                    />
+                                                                    <span className="text-xs text-gray-500 font-bold">%</span>
+                                                                </div>
+                                                            </div>
+                                                            {(profile?.option1_name || profile?.option2_name || profile?.option3_name) && (
+                                                                <div className="border-t border-gray-100 pt-2 flex flex-col gap-2">
+                                                                    {profile?.option1_name && (
+                                                                        <div className="inline-flex items-center gap-2 justify-between">
+                                                                            <span className="text-xs text-gray-500 font-bold truncate max-w-[80px]" title={profile.option1_name}>{profile.option1_name}:</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={editForm.incentiveOpt1}
+                                                                                    onChange={(e) => setEditForm({ ...editForm, incentiveOpt1: e.target.value })}
+                                                                                    onKeyDown={handleEditKeyDown}
+                                                                                    className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    placeholder="0"
+                                                                                />
+                                                                                <span className="text-xs text-gray-500 font-bold">%</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {profile?.option2_name && (
+                                                                        <div className="inline-flex items-center gap-2 justify-between">
+                                                                            <span className="text-xs text-gray-500 font-bold truncate max-w-[80px]" title={profile.option2_name}>{profile.option2_name}:</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={editForm.incentiveOpt2}
+                                                                                    onChange={(e) => setEditForm({ ...editForm, incentiveOpt2: e.target.value })}
+                                                                                    onKeyDown={handleEditKeyDown}
+                                                                                    className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    placeholder="0"
+                                                                                />
+                                                                                <span className="text-xs text-gray-500 font-bold">%</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {profile?.option3_name && (
+                                                                        <div className="inline-flex items-center gap-2 justify-between">
+                                                                            <span className="text-xs text-gray-500 font-bold truncate max-w-[80px]" title={profile.option3_name}>{profile.option3_name}:</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={editForm.incentiveOpt3}
+                                                                                    onChange={(e) => setEditForm({ ...editForm, incentiveOpt3: e.target.value })}
+                                                                                    onKeyDown={handleEditKeyDown}
+                                                                                    className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-16 text-right"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    placeholder="0"
+                                                                                />
+                                                                                <span className="text-xs text-gray-500 font-bold">%</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                                                            {member.profiles?.incentive_percentage || 0}%
-                                                        </span>
+                                                        <div className="flex flex-col gap-1 items-end">
+                                                            <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
+                                                                일반: {member.profiles?.incentive_percentage || 0}%
+                                                            </span>
+                                                            {profile?.option1_name && (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-50">
+                                                                    {profile.option1_name}: {member.profiles?.incentive_percentage_opt1 || 0}%
+                                                                </span>
+                                                            )}
+                                                            {profile?.option2_name && (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-50">
+                                                                    {profile.option2_name}: {member.profiles?.incentive_percentage_opt2 || 0}%
+                                                                </span>
+                                                            )}
+                                                            {profile?.option3_name && (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-50">
+                                                                    {profile.option3_name}: {member.profiles?.incentive_percentage_opt3 || 0}%
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )
                                                 ) : (
                                                     <span className="text-gray-300 text-xs">-</span>

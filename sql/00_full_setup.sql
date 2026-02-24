@@ -36,12 +36,18 @@ CREATE TABLE IF NOT EXISTS systems (
     organization_name TEXT,
     contact_number TEXT,
     admin_name TEXT,
-    last_client_no INT DEFAULT 0
+    last_client_no INT DEFAULT 0,
+    option1_name TEXT DEFAULT NULL,
+    option2_name TEXT DEFAULT NULL,
+    option3_name TEXT DEFAULT NULL
 );
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS organization_name TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS contact_number TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS admin_name TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS last_client_no INT DEFAULT 0;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS option1_name TEXT DEFAULT NULL;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS option2_name TEXT DEFAULT NULL;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS option3_name TEXT DEFAULT NULL;
 
 -- 3. Profiles Table (순수 유저 정보)
 CREATE TABLE IF NOT EXISTS profiles (
@@ -50,11 +56,17 @@ CREATE TABLE IF NOT EXISTS profiles (
     full_name TEXT,
     phone TEXT,
     incentive_percentage NUMERIC(5,2) DEFAULT 0,
+    incentive_percentage_opt1 NUMERIC(5,2) DEFAULT 0,
+    incentive_percentage_opt2 NUMERIC(5,2) DEFAULT 0,
+    incentive_percentage_opt3 NUMERIC(5,2) DEFAULT 0,
     color_code TEXT DEFAULT '#3B82F6',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS incentive_percentage NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS incentive_percentage_opt1 NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS incentive_percentage_opt2 NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS incentive_percentage_opt3 NUMERIC(5,2) DEFAULT 0;
 
 -- 4. System Members Table (소속 및 역할 관리)
 CREATE TABLE IF NOT EXISTS system_members (
@@ -111,6 +123,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     series_id UUID,
     version INT DEFAULT 1,
     system_id UUID REFERENCES systems(id),
+    session_type TEXT DEFAULT 'normal',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -120,10 +133,11 @@ CREATE TABLE IF NOT EXISTS pricing_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     system_id UUID NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
     duration_minutes INT NOT NULL,
+    session_type TEXT DEFAULT 'normal',
     price INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE(system_id, duration_minutes)
+    UNIQUE(system_id, duration_minutes, session_type)
 );
 
 -- 8. Message Templates Table (예약 안내 문자 템플릿)

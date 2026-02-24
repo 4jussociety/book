@@ -23,7 +23,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery'
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 const loadPricesFromProfile = (profile: Profile | null): DurationPrice[] => {
     if (!profile?.pricing) return []
-    return profile.pricing.map(p => ({ durationMin: p.duration_minutes, priceKrw: p.price }))
+    return profile.pricing.map(p => ({ durationMin: p.duration_minutes, sessionType: p.session_type || 'normal', priceKrw: p.price }))
 }
 
 const BUCKET_LABELS: Record<number, string> = {

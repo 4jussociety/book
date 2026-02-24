@@ -19,6 +19,12 @@ export type Profile = {
     contact_number?: string
     admin_name?: string
     incentive_percentage?: number // 0~100
+    incentive_percentage_opt1?: number
+    incentive_percentage_opt2?: number
+    incentive_percentage_opt3?: number
+    option1_name?: string
+    option2_name?: string
+    option3_name?: string
 
     // 기능별 테이블에서 조인되는 런타임 속성
     pricing?: PricingSetting[]
@@ -34,12 +40,16 @@ export type System = {
     contact_number: string | null
     admin_name: string | null
     last_client_no: number
+    option1_name?: string | null
+    option2_name?: string | null
+    option3_name?: string | null
 }
 
 export type PricingSetting = {
     id: string
     system_id: string
     duration_minutes: number
+    session_type: SessionType
     price: number
     created_at: string
     updated_at: string
@@ -87,6 +97,7 @@ export type Client = {
 
 export type AppointmentStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NOSHOW'
 export type EventType = 'APPOINTMENT' | 'BLOCK'
+export type SessionType = 'normal' | 'option1' | 'option2' | 'option3'
 
 export type Appointment = {
     id: string
@@ -105,6 +116,7 @@ export type Appointment = {
     created_at: string
     price?: number // 예상 결제 금액 (원)
     membership_id?: string | null // 회원권 연동 ID
+    session_type?: SessionType // 수업 종류 (기본값: normal)
 
     // Joins
     client?: Client

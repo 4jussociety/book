@@ -8,8 +8,13 @@ import { supabase } from '@/lib/supabase'
 import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert, Trash2 } from 'lucide-react'
 
 const DURATION_BUCKETS = [30, 40, 50, 60]
-type DurationPrice = { durationMin: number; priceKrw: number }
-const defaultPrices = (): DurationPrice[] => DURATION_BUCKETS.map(d => ({ durationMin: d, priceKrw: 0 }))
+type DurationPrice = { durationMin: number; sessionType: import('@/types/db').SessionType; priceKrw: number }
+const defaultPrices = (): DurationPrice[] => [
+    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'normal' as const, priceKrw: 0 })),
+    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option1' as const, priceKrw: 0 })),
+    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option2' as const, priceKrw: 0 })),
+    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option3' as const, priceKrw: 0 })),
+]
 
 export default function AdminPage() {
     const { user, profile, refreshProfile } = useAuth()
@@ -17,6 +22,9 @@ export default function AdminPage() {
     const [organizationName, setOrganizationName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
     const [adminName, setAdminName] = useState('')
+    const [option1Name, setOption1Name] = useState('')
+    const [option2Name, setOption2Name] = useState('')
+    const [option3Name, setOption3Name] = useState('')
     const [messageTemplate, setMessageTemplate] = useState('')
     const [resetConfirm, setResetConfirm] = useState('')
     const [isResetting, setIsResetting] = useState(false)
@@ -27,15 +35,19 @@ export default function AdminPage() {
             setOrganizationName(profile.organization_name || '')
             setContactNumber(profile.contact_number || '')
             setAdminName(profile.admin_name || '')
+            setOption1Name(profile.option1_name || '')
+            setOption2Name(profile.option2_name || '')
+            setOption3Name(profile.option3_name || '')
             setMessageTemplate(profile.message_template ||
                 `[예약 안내] {고객}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`)
 
             // pricing 배열에서 가격 데이터 매핑
             if (profile.pricing && profile.pricing.length > 0) {
-                setPrices(DURATION_BUCKETS.map(d => {
-                    const found = profile.pricing?.find(p => p.duration_minutes === d)
-                    return { durationMin: d, priceKrw: found?.price || 0 }
-                }))
+                const newPrices = defaultPrices().map(dp => {
+                    const found = profile.pricing?.find(p => p.duration_minutes === dp.durationMin && p.session_type === dp.sessionType)
+                    return { ...dp, priceKrw: found?.price || 0 }
+                })
+                setPrices(newPrices)
             }
         }
     }, [profile])
@@ -56,21 +68,26 @@ export default function AdminPage() {
                     organization_name: organizationName,
                     contact_number: contactNumber,
                     admin_name: adminName,
+                    option1_name: option1Name || null,
+                    option2_name: option2Name || null,
+                    option3_name: option3Name || null,
                 })
                 .eq('id', profile.system_id)
 
             if (systemError) throw systemError
 
             // 2. 단가 설정 저장 (pricing_settings 테이블 - upsert)
+            // Save only prices that are specifically set, or save all.
             const pricingData = prices.map(p => ({
                 system_id: profile.system_id!,
                 duration_minutes: p.durationMin,
+                session_type: p.sessionType,
                 price: p.priceKrw,
             }))
 
             const { error: pricingError } = await supabase
                 .from('pricing_settings')
-                .upsert(pricingData, { onConflict: 'system_id,duration_minutes' })
+                .upsert(pricingData, { onConflict: 'system_id,duration_minutes,session_type' })
 
             if (pricingError) throw pricingError
 
@@ -135,13 +152,13 @@ export default function AdminPage() {
         }
     }
 
-    const handlePriceChange = (durationMin: number, value: string) => {
+
+
+    const handlePriceChange = (sessionType: string, durationMin: number, value: string) => {
         const priceKrw = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0
-        const updated = prices.map(p => p.durationMin === durationMin ? { ...p, priceKrw } : p)
+        const updated = prices.map(p => (p.durationMin === durationMin && p.sessionType === sessionType) ? { ...p, priceKrw } : p)
         setPrices(updated)
     }
-
-
 
     if (!profile) {
         return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>
@@ -180,27 +197,117 @@ export default function AdminPage() {
                 </div>
             </Section>
 
+            {/* 단가 및 수업 종류 설정 (Matrix Layout) */}
+            <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="수업 종류 및 단가 설정">
+                <p className="text-xs text-gray-400 mb-4">운영하실 수업 종류의 이름을 정하고, 각 시간별 1회당 단가를 입력하세요. 비워두면 표출되지 않습니다.</p>
 
-            {/* 단가 설정 */}
-            <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="수업 시간별 단가 설정">
-                <p className="text-xs text-gray-400 mb-4">각 수업 시간 구간의 1회당 단가를 설정합니다. (통계 매출 계산에 사용)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {prices.map(p => (
-                        <div key={p.durationMin} className="flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl">
-                            <span className="text-sm font-black text-gray-700 w-12 flex-shrink-0">{p.durationMin}분</span>
-                            <div className="flex-1 flex items-center">
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={p.priceKrw > 0 ? p.priceKrw.toLocaleString() : ''}
-                                    onChange={e => handlePriceChange(p.durationMin, e.target.value)}
-                                    placeholder="0"
-                                    className="w-full text-right px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
-                                />
-                                <span className="ml-2 text-xs text-gray-400 font-bold flex-shrink-0">원</span>
-                            </div>
-                        </div>
-                    ))}
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-left bg-white min-w-[600px]">
+                        <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                                <th className="px-4 py-3 text-xs font-black text-gray-500 w-1/4">수업 종류명</th>
+                                {DURATION_BUCKETS.map(d => (
+                                    <th key={d} className="px-2 py-3 text-xs font-black text-gray-500 text-center w-[18%]">{d}분 단가</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {/* 일반 수업 (이름 고정) */}
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-4 py-3">
+                                    <div className="w-full px-3 py-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg text-sm font-bold flex items-center justify-center">
+                                        일반 수업
+                                    </div>
+                                </td>
+                                {DURATION_BUCKETS.map(d => {
+                                    const priceObj = prices.find(p => p.sessionType === 'normal' && p.durationMin === d)
+                                    return (
+                                        <td key={d} className="px-2 py-3 text-center">
+                                            <input
+                                                type="text" inputMode="numeric"
+                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
+                                                onChange={e => handlePriceChange('normal', d, e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300"
+                                            />
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                            {/* 옵션 1 */}
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-4 py-3">
+                                    <input
+                                        type="text" value={option1Name} onChange={e => setOption1Name(e.target.value)}
+                                        placeholder="옵션 1 (예: 체형교정)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
+                                    />
+                                </td>
+                                {DURATION_BUCKETS.map(d => {
+                                    const priceObj = prices.find(p => p.sessionType === 'option1' && p.durationMin === d)
+                                    return (
+                                        <td key={d} className="px-2 py-3 text-center">
+                                            <input
+                                                type="text" inputMode="numeric" disabled={!option1Name.trim()}
+                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
+                                                onChange={e => handlePriceChange('option1', d, e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
+                                            />
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                            {/* 옵션 2 */}
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-4 py-3">
+                                    <input
+                                        type="text" value={option2Name} onChange={e => setOption2Name(e.target.value)}
+                                        placeholder="옵션 2 (예: 재활)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
+                                    />
+                                </td>
+                                {DURATION_BUCKETS.map(d => {
+                                    const priceObj = prices.find(p => p.sessionType === 'option2' && p.durationMin === d)
+                                    return (
+                                        <td key={d} className="px-2 py-3 text-center">
+                                            <input
+                                                type="text" inputMode="numeric" disabled={!option2Name.trim()}
+                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
+                                                onChange={e => handlePriceChange('option2', d, e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
+                                            />
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                            {/* 옵션 3 */}
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-4 py-3">
+                                    <input
+                                        type="text" value={option3Name} onChange={e => setOption3Name(e.target.value)}
+                                        placeholder="옵션 3 (미사용시 비움)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
+                                    />
+                                </td>
+                                {DURATION_BUCKETS.map(d => {
+                                    const priceObj = prices.find(p => p.sessionType === 'option3' && p.durationMin === d)
+                                    return (
+                                        <td key={d} className="px-2 py-3 text-center">
+                                            <input
+                                                type="text" inputMode="numeric" disabled={!option3Name.trim()}
+                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
+                                                onChange={e => handlePriceChange('option3', d, e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
+                                            />
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </Section>
 
