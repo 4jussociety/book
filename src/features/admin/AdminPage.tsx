@@ -420,11 +420,11 @@ export default function AdminPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {/* 일반 수업 (이름 고정) */}
+                            {/* 매뉴얼PT (이름 고정) */}
                             <tr className="hover:bg-green-50/30 transition-colors">
                                 <td className="px-4 py-3">
                                     <div className="w-full px-3 py-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg text-sm font-bold flex items-center justify-center">
-                                        일반 수업
+                                        매뉴얼PT
                                     </div>
                                 </td>
                                 {DURATION_BUCKETS.map(d => {
@@ -565,7 +565,7 @@ export default function AdminPage() {
                                                 value={pkg.session_type} onChange={e => handleUpdatePackage(index, 'session_type', e.target.value)}
                                                 className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all cursor-pointer"
                                             >
-                                                <option value="normal">일반 수업</option>
+                                                <option value="normal">매뉴얼PT</option>
                                                 {option1Name && <option value="option1">{option1Name}</option>}
                                                 {option2Name && <option value="option2">{option2Name}</option>}
                                                 {option3Name && <option value="option3">{option3Name}</option>}
