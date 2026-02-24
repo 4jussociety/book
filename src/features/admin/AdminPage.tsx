@@ -243,7 +243,7 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
             <header className="flex items-center gap-3">
                 <div className="p-3 bg-red-100 text-red-600 rounded-xl">
                     <ShieldAlert className="w-8 h-8" />
@@ -254,26 +254,60 @@ export default function AdminPage() {
                 </div>
             </header>
 
-            {/* 업체 기본 정보 */}
-            <Section icon={<AlertTriangle className="w-5 h-5" />} iconBg="bg-blue-50" iconColor="text-blue-600" title="업체 기본 정보">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <Field label="업체명 (장소)" hint="안내 문자의 {장소} 변수에 들어갈 내용입니다.">
-                        <input type="text" value={organizationName} onChange={e => setOrganizationName(e.target.value)}
-                            placeholder="예: Re:무브 체형교정"
-                            className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                    </Field>
-                    <Field label="관리자 이름" hint="안내 문자의 {담당자} 변수에 들어갈 내용입니다.">
-                        <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)}
-                            placeholder="예: 홍길동"
-                            className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                    </Field>
-                    <Field label="관리자 연락처" hint="안내 문자의 {연락처} 변수에 들어갈 내용입니다.">
-                        <input type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)}
-                            placeholder="예: 02-1234-5678"
-                            className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                    </Field>
-                </div>
-            </Section>
+            {/* 상단 2단 배치: 업체 기본 정보 & 예약 안내 문자 설정 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                {/* 업체 기본 정보 */}
+                <Section icon={<AlertTriangle className="w-5 h-5" />} iconBg="bg-blue-50" iconColor="text-blue-600" title="업체 기본 정보">
+                    <div className="space-y-4">
+                        <Field label="업체명 (장소)" hint="안내 문자의 {장소} 변수에 들어갈 내용입니다.">
+                            <input type="text" value={organizationName} onChange={e => setOrganizationName(e.target.value)}
+                                placeholder="예: Re:무브 체형교정"
+                                className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                        </Field>
+                        <Field label="관리자 이름" hint="안내 문자의 {담당자} 변수에 들어갈 내용입니다.">
+                            <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)}
+                                placeholder="예: 홍길동"
+                                className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                        </Field>
+                        <Field label="관리자 연락처" hint="안내 문자의 {연락처} 변수에 들어갈 내용입니다.">
+                            <input type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)}
+                                placeholder="예: 02-1234-5678"
+                                className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                        </Field>
+                    </div>
+                </Section>
+
+                {/* 예약 문자 설정 */}
+                <Section icon={<MessageSquare className="w-5 h-5" />} iconBg="bg-indigo-50" iconColor="text-indigo-600" title="예약 안내 문자 공통 템플릿">
+                    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사용 가능한 변수</h3>
+                        <div className="flex flex-wrap gap-2 text-sm font-medium">
+                            {['{고객}', '{일시}', '{장소}', '{담당자}', '{연락처}'].map(v => (
+                                <code key={v} className="px-2 py-1 bg-gray-100 rounded text-gray-700 text-xs">{v}</code>
+                            ))}
+                        </div>
+                    </div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">
+                        문자 템플릿 작성
+                    </label>
+                    <textarea value={messageTemplate} onChange={e => setMessageTemplate(e.target.value)}
+                        rows={6}
+                        className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none"
+                        placeholder="예약 안내 문자 양식을 입력하세요..." />
+                    <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100 mt-3">
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-2">미리보기 (실제 예시)</span>
+                        <pre className="text-sm text-indigo-900 whitespace-pre-wrap font-sans">
+                            {messageTemplate
+                                .replace('{고객}', '김철수')
+                                .replace('{일시}', '2024년 3월 15일(금) 14:00')
+                                .replace('{장소}', organizationName || 'Re:무브 체형교정')
+                                .replace('{담당자}', adminName || profile.full_name || '홍길동')
+                                .replace('{연락처}', contactNumber || '02-123-4567')
+                            }
+                        </pre>
+                    </div>
+                </Section>
+            </div>
 
             {/* 단가 및 수업 종류 설정 (Matrix Layout) */}
             <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="수업 종류 및 단가 설정">
@@ -484,38 +518,6 @@ export default function AdminPage() {
                 </button>
 
             </Section>
-
-            {/* 예약 문자 설정 */}
-            <Section icon={<MessageSquare className="w-5 h-5" />} iconBg="bg-indigo-50" iconColor="text-indigo-600" title="예약 안내 문자 공통 템플릿">
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사용 가능한 변수</h3>
-                    <div className="flex flex-wrap gap-2 text-sm font-medium">
-                        {['{고객}', '{일시}', '{장소}', '{담당자}', '{연락처}'].map(v => (
-                            <code key={v} className="px-2 py-1 bg-gray-100 rounded text-gray-700 text-xs">{v}</code>
-                        ))}
-                    </div>
-                </div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
-                    문자 템플릿 작성
-                </label>
-                <textarea value={messageTemplate} onChange={e => setMessageTemplate(e.target.value)}
-                    rows={6}
-                    className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none"
-                    placeholder="예약 안내 문자 양식을 입력하세요..." />
-                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100 mt-3">
-                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-2">미리보기 (실제 예시)</span>
-                    <pre className="text-sm text-indigo-900 whitespace-pre-wrap font-sans">
-                        {messageTemplate
-                            .replace('{고객}', '김철수')
-                            .replace('{일시}', '2024년 3월 15일(금) 14:00')
-                            .replace('{장소}', organizationName || 'Re:무브 체형교정')
-                            .replace('{담당자}', adminName || profile.full_name || '홍길동')
-                            .replace('{연락처}', contactNumber || '02-123-4567')
-                        }
-                    </pre>
-                </div>
-            </Section>
-
 
             {/* 시스템 전체 초기화 */}
             <Section icon={<Trash2 className="w-5 h-5" />} iconBg="bg-red-50" iconColor="text-red-600" title="시스템 전체 초기화">
