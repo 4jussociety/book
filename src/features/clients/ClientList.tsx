@@ -61,7 +61,7 @@ export default function ClientList() {
     const handleCopyMessage = (Client: ClientWithDetails) => {
         const nextAppt = Client.next_appointment
         if (!nextAppt) {
-            alert('이 고객의 예정된 예약이 없습니다.')
+            alert('이 고객의 등록된 예약이 없습니다.')
             return
         }
         const aptDate = parseISO(nextAppt.start_time)
@@ -78,7 +78,7 @@ export default function ClientList() {
             .replace(/{연락처}/g, profile?.contact_number || '')
 
         navigator.clipboard.writeText(text).then(() => {
-            alert('예약 안내 문자가 복사되었습니다!')
+            alert('📌 최근 예약 기준으로 예약 안내 문자가 복사되었습니다.\n\n날짜, 시간, 담당자 등 예약 정보가 현재 상황과 다를 수 있으니 발송 전에 반드시 확인하고수정해주세요!')
         })
     }
 
@@ -191,7 +191,7 @@ export default function ClientList() {
                                     <button
                                         onClick={() => handleCopyMessage(Client)}
                                         className={`p-2 rounded-lg transition-colors ${Client.next_appointment ? 'text-indigo-500 hover:bg-indigo-50' : 'text-gray-300 cursor-not-allowed'}`}
-                                        title={Client.next_appointment ? '예약안내문자 복사' : '예정된 예약 없음'}
+                                        title={Client.next_appointment ? '최근 예약 기준 안내문자 복사' : '등록된 예약 없음'}
                                         disabled={!Client.next_appointment}
                                     >
                                         <MessageSquare className="w-4 h-4" />
@@ -312,7 +312,7 @@ export default function ClientList() {
                                             <button
                                                 onClick={() => handleCopyMessage(Client)}
                                                 className={`p-1.5 rounded-lg transition-colors ${Client.next_appointment ? 'text-indigo-500 hover:bg-indigo-50' : 'text-gray-300 cursor-not-allowed'}`}
-                                                title={Client.next_appointment ? '예약안내문자 복사' : '예정된 예약 없음'}
+                                                title={Client.next_appointment ? '최근 예약 기준 안내문자 복사' : '등록된 예약 없음'}
                                                 disabled={!Client.next_appointment}
                                             >
                                                 <MessageSquare className="w-4 h-4" />

@@ -166,6 +166,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 return
             }
 
+            // 24시(자정) 넘기 방지: 24:00으로 클램핑
+            const dayEnd = new Date(startDateTime)
+            dayEnd.setHours(24, 0, 0, 0)
+            if (endDateTime > dayEnd) {
+                endDateTime.setTime(dayEnd.getTime())
+            }
+
             if (editingAppointment) {
                 await updateMutation.mutateAsync({
                     id: editingAppointment.id,

@@ -342,9 +342,22 @@ export default function WeekView() {
             const duration = differenceInMinutes(new Date(appointment.end_time), new Date(appointment.start_time))
             const newEndDate = addMinutes(newStartDate, duration)
 
-            // 유효성 체크 (Start Hour ~ End Hour)
-            if (newStartDate.getHours() < START_HOUR || newEndDate.getHours() >= END_HOUR + (newEndDate.getMinutes() > 0 ? 1 : 0)) {
-                // 범위 밖이면 무시 or 클램핑? 무시가 안전.
+            // 유효성 체크: 24시(자정) 넘기 방지
+            const dayEnd = new Date(newStartDate)
+            dayEnd.setHours(23, 59, 59, 999)
+
+            if (newEndDate > dayEnd) {
+                // end가 자정을 넘으면, end를 24:00으로 클램핑하고 start를 역산
+                const clampedEnd = new Date(newStartDate)
+                clampedEnd.setHours(24, 0, 0, 0)
+                const clampedStart = addMinutes(clampedEnd, -duration)
+                if (clampedStart.getHours() < START_HOUR) return
+                newStartDate = clampedStart
+                Object.assign(newEndDate, clampedEnd)
+                newEndDate.setTime(clampedEnd.getTime())
+            }
+
+            if (newStartDate.getHours() < START_HOUR) {
                 return
             }
 
@@ -378,6 +391,15 @@ export default function WeekView() {
         const newDuration = differenceInMinutes(newEndTime, newStartTime)
         if (newDuration < 10) return
         if (newStartTime >= newEndTime) return
+
+        // 24시(자정) 넘기 방지: end를 24:00으로 클램핑
+        const dayEnd = new Date(newStartTime)
+        dayEnd.setHours(24, 0, 0, 0)
+        if (newEndTime > dayEnd) {
+            newEndTime = dayEnd
+        }
+        // 클램핑 후 최소 시간 재검증
+        if (differenceInMinutes(newEndTime, newStartTime) < 10) return
 
         updateMutation.mutate({
             id: appointment.id,

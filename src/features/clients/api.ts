@@ -73,15 +73,13 @@ export async function getClients(search?: string): Promise<ClientWithDetails[]> 
         }
     })
 
-    // 다음 예약(미래 가장 가까운 예약) 조회
+    // 최근 예약 데이터 조회 (과거/미래 무관, 상태 무관하게 최신 예약 1건)
     const { data: nextAppts } = await supabase
         .from('appointments')
         .select('client_id, start_time, end_time, instructor_id, profiles!appointments_instructor_id_fkey(full_name)')
         .in('client_id', clientIds)
         .eq('event_type', 'APPOINTMENT')
-        .not('status', 'in', '(CANCELLED,NOSHOW)')
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
+        .order('start_time', { ascending: false })
 
     // Map: client_id -> next_appointment
     const nextApptMap = new Map<string, { start_time: string; end_time: string; instructor_name: string }>()

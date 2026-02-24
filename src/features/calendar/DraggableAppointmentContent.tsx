@@ -54,11 +54,11 @@ export function DraggableAppointmentContent({
             badge: 'bg-rose-200/50 text-rose-700'
         },
         BLOCK: {
-            bg: 'bg-gray-100/80',
-            border: 'border-gray-300',
-            strip: 'bg-gray-400',
-            text: 'text-gray-600',
-            badge: 'bg-gray-200 text-gray-500'
+            bg: 'bg-slate-700',
+            border: 'border-slate-800',
+            strip: 'bg-slate-800',
+            text: 'text-white',
+            badge: 'bg-slate-600 text-slate-200'
         }
     }
 
