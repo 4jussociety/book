@@ -243,7 +243,7 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+        <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
             <header className="flex items-center gap-3">
                 <div className="p-3 bg-red-100 text-red-600 rounded-xl">
                     <ShieldAlert className="w-8 h-8" />
@@ -256,7 +256,7 @@ export default function AdminPage() {
 
             {/* 업체 기본 정보 */}
             <Section icon={<AlertTriangle className="w-5 h-5" />} iconBg="bg-blue-50" iconColor="text-blue-600" title="업체 기본 정보">
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <Field label="업체명 (장소)" hint="안내 문자의 {장소} 변수에 들어갈 내용입니다.">
                         <input type="text" value={organizationName} onChange={e => setOrganizationName(e.target.value)}
                             placeholder="예: Re:무브 체형교정"
@@ -397,7 +397,7 @@ export default function AdminPage() {
                     <table className="w-full text-left bg-white min-w-[700px]">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="px-3 py-3 text-xs font-black text-gray-500 w-[22%]">상품명 (예: 체형교정 10회권)</th>
+                                <th className="px-3 py-3 text-xs font-black text-gray-500 w-[22%]">상품명</th>
                                 <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[15%]">적용 수업</th>
                                 <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[12%]">총 횟수</th>
                                 <th className="px-3 py-3 text-xs font-black text-gray-500 text-center w-[18%]">기본 결제금액</th>
