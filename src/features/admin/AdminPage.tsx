@@ -187,21 +187,43 @@ export default function AdminPage() {
                 if (delError) throw delError
             }
 
-            const upsertPackages = packages.map(pkg => ({
-                id: pkg.id || undefined,
-                system_id: profile.system_id!,
-                name: pkg.name,
-                session_type: pkg.session_type,
-                total_sessions: pkg.total_sessions,
-                default_price: pkg.default_price,
-                valid_days: pkg.valid_days
-            }))
+            // 기존 패키지 (id 있음) -> upsert
+            const packagesToUpdate = packages
+                .filter(pkg => pkg.id)
+                .map(pkg => ({
+                    id: pkg.id,
+                    system_id: profile.system_id!,
+                    name: pkg.name,
+                    session_type: pkg.session_type,
+                    total_sessions: pkg.total_sessions,
+                    default_price: pkg.default_price,
+                    valid_days: pkg.valid_days
+                }))
 
-            if (upsertPackages.length > 0) {
-                const { error: pkgUpsertError } = await supabase
+            // 신규 패키지 (id 없음) -> insert (id 키 자체를 생략해야 400 에러 발생 안함)
+            const packagesToInsert = packages
+                .filter(pkg => !pkg.id)
+                .map(pkg => ({
+                    system_id: profile.system_id!,
+                    name: pkg.name,
+                    session_type: pkg.session_type,
+                    total_sessions: pkg.total_sessions,
+                    default_price: pkg.default_price,
+                    valid_days: pkg.valid_days
+                }))
+
+            if (packagesToUpdate.length > 0) {
+                const { error: updateError } = await supabase
                     .from('membership_packages')
-                    .upsert(upsertPackages)
-                if (pkgUpsertError) throw pkgUpsertError
+                    .upsert(packagesToUpdate)
+                if (updateError) throw updateError
+            }
+
+            if (packagesToInsert.length > 0) {
+                const { error: insertError } = await supabase
+                    .from('membership_packages')
+                    .insert(packagesToInsert)
+                if (insertError) throw insertError
             }
 
             setDeletedPackageIds([]) // 삭제 처리 완료 후 초기화
