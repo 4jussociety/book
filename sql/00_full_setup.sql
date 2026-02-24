@@ -359,6 +359,15 @@ DROP POLICY IF EXISTS "memberships_delete" ON client_memberships;
 CREATE POLICY "memberships_delete" ON client_memberships FOR DELETE 
   USING (has_role(system_id, ARRAY['owner', 'staff', 'instructor']));
 
+-- Policies: Membership Packages (관리자: 전체, 멤버: 읽기 전용)
+DROP POLICY IF EXISTS "packages_view" ON membership_packages;
+CREATE POLICY "packages_view" ON membership_packages FOR SELECT
+  USING (is_system_member(system_id));
+
+DROP POLICY IF EXISTS "packages_owner_all" ON membership_packages;
+CREATE POLICY "packages_owner_all" ON membership_packages FOR ALL
+  USING (has_role(system_id, ARRAY['owner']));
+
 --------------------------------------------------------------------------------
 -- [Part 3] 핵심 함수 및 트리거 (Functions & Maintenance)
 --------------------------------------------------------------------------------
