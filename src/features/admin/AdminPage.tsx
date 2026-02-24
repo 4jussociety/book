@@ -89,27 +89,69 @@ export default function AdminPage() {
         return <Navigate to="/profile" replace />
     }
 
-    const handleSave = async () => {
+    // 1. 업체 기본 정보 저장
+    const handleSaveOrganizationInfo = async () => {
         if (!user || !profile?.system_id) return
         setIsLoading(true)
         try {
-            // 1. 업체 기본 정보 저장 (systems 테이블)
             const { error: systemError } = await supabase
                 .from('systems')
                 .update({
                     organization_name: organizationName,
                     contact_number: contactNumber,
                     admin_name: adminName,
+                })
+                .eq('id', profile.system_id)
+
+            if (systemError) throw systemError
+            alert('업체 기본 정보가 성공적으로 저장되었습니다.')
+        } catch (error) {
+            console.error('Error updating organization info:', error)
+            alert('업체 기본 정보 저장 중 오류가 발생했습니다.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // 2. 예약 안내 문자 템플릿 저장
+    const handleSaveTemplate = async () => {
+        if (!user || !profile?.system_id) return
+        setIsLoading(true)
+        try {
+            const { error: templateError } = await supabase
+                .from('message_templates')
+                .upsert({
+                    system_id: profile.system_id!,
+                    template_name: '기본 템플릿',
+                    template_body: messageTemplate,
+                    is_default: true,
+                }, { onConflict: 'system_id,template_name' })
+
+            if (templateError) throw templateError
+            alert('안내 문자 템플릿이 성공적으로 저장되었습니다.')
+        } catch (error) {
+            console.error('Error updating template info:', error)
+            alert('템플릿 저장 중 오류가 발생했습니다.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // 3. 단가 및 수업 종류 설정 저장
+    const handleSavePricing = async () => {
+        if (!user || !profile?.system_id) return
+        setIsLoading(true)
+        try {
+            const { error: systemError } = await supabase
+                .from('systems')
+                .update({
                     option1_name: option1Name || null,
                     option2_name: option2Name || null,
                     option3_name: option3Name || null,
                 })
                 .eq('id', profile.system_id)
-
             if (systemError) throw systemError
 
-            // 2. 단가 설정 저장 (pricing_settings 테이블 - upsert)
-            // Save only prices that are specifically set, or save all.
             const pricingData = prices.map(p => ({
                 system_id: profile.system_id!,
                 duration_minutes: p.durationMin,
@@ -122,21 +164,21 @@ export default function AdminPage() {
                 .upsert(pricingData, { onConflict: 'system_id,duration_minutes,session_type' })
 
             if (pricingError) throw pricingError
+            alert('단가 및 수업 설정이 성공적으로 저장되었습니다.')
+            await refreshProfile()
+        } catch (error) {
+            console.error('Error updating pricing:', error)
+            alert('단가 설정 저장 중 오류가 발생했습니다.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
-            // 3. 문자 템플릿 저장 (message_templates 테이블 - upsert)
-            const { error: templateError } = await supabase
-                .from('message_templates')
-                .upsert({
-                    system_id: profile.system_id!,
-                    template_name: '기본 템플릿',
-                    template_body: messageTemplate,
-                    is_default: true,
-                }, { onConflict: 'system_id,template_name' })
-
-            if (templateError) throw templateError
-
-            // 4. 패키지 상품 저장
-            // 4-1. 삭제된 패키지 처리
+    // 4. 패키지 상품 저장
+    const handleSavePackages = async () => {
+        if (!user || !profile?.system_id) return
+        setIsLoading(true)
+        try {
             if (deletedPackageIds.length > 0) {
                 const { error: delError } = await supabase
                     .from('membership_packages')
@@ -145,9 +187,8 @@ export default function AdminPage() {
                 if (delError) throw delError
             }
 
-            // 4-2. 추가/수정된 패키지 처리
             const upsertPackages = packages.map(pkg => ({
-                id: pkg.id || undefined, // undefined면 새로 생성 (uuid_generate_v4 작동)
+                id: pkg.id || undefined,
                 system_id: profile.system_id!,
                 name: pkg.name,
                 session_type: pkg.session_type,
@@ -163,11 +204,28 @@ export default function AdminPage() {
                 if (pkgUpsertError) throw pkgUpsertError
             }
 
-            alert('관리자 설정이 성공적으로 저장되었습니다.')
-            window.location.reload()
+            setDeletedPackageIds([]) // 삭제 처리 완료 후 초기화
+            alert('패키지 상품 설정이 성공적으로 저장되었습니다.')
+
+            // 패키지 상품 재로드
+            const { data } = await supabase
+                .from('membership_packages')
+                .select('*')
+                .eq('system_id', profile.system_id)
+                .order('created_at', { ascending: true })
+            if (data) {
+                setPackages(data.map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    session_type: d.session_type,
+                    total_sessions: d.total_sessions,
+                    default_price: d.default_price,
+                    valid_days: d.valid_days
+                })))
+            }
         } catch (error) {
-            console.error('Error updating admin settings:', error)
-            alert('저장 중 오류가 발생했습니다.')
+            console.error('Error updating packages:', error)
+            alert('패키지 설정 저장 중 오류가 발생했습니다.')
         } finally {
             setIsLoading(false)
         }
@@ -275,6 +333,14 @@ export default function AdminPage() {
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
                     </div>
+
+                    <div className="mt-6 flex justify-end">
+                        <button onClick={handleSaveOrganizationInfo} disabled={isLoading}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm">
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>업체 정보 저장</span>
+                        </button>
+                    </div>
                 </Section>
 
                 {/* 예약 문자 설정 */}
@@ -305,6 +371,14 @@ export default function AdminPage() {
                                 .replace('{연락처}', contactNumber || '02-123-4567')
                             }
                         </pre>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                        <button onClick={handleSaveTemplate} disabled={isLoading}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm">
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>템플릿 저장</span>
+                        </button>
                     </div>
                 </Section>
             </div>
@@ -421,6 +495,14 @@ export default function AdminPage() {
                         </tbody>
                     </table>
                 </div>
+
+                <div className="mt-6 flex justify-end">
+                    <button onClick={handleSavePricing} disabled={isLoading}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm">
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>수업 단가 설정 저장</span>
+                    </button>
+                </div>
             </Section>
 
             {/* 패키지/상품 설정 (Membership Packages) */}
@@ -517,6 +599,13 @@ export default function AdminPage() {
                     + 새 상품 추가
                 </button>
 
+                <div className="mt-6 flex justify-end">
+                    <button onClick={handleSavePackages} disabled={isLoading}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm">
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>패키지 상품 설정 저장</span>
+                    </button>
+                </div>
             </Section>
 
             {/* 시스템 전체 초기화 */}
@@ -552,14 +641,7 @@ export default function AdminPage() {
                 </div>
             </Section>
 
-            {/* 플로팅/스틱키 하단 저장 버튼 */}
-            <div className="flex justify-end sticky bottom-4">
-                <button onClick={handleSave} disabled={isLoading}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-2xl disabled:opacity-50 active:scale-95">
-                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    <span>관리자 전역 설정 적용</span>
-                </button>
-            </div>
+
         </div>
     )
 }
