@@ -166,14 +166,16 @@ ALTER TABLE profiles REPLICA IDENTITY FULL;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'appointments') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE appointments;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'profiles') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
-    END IF;
+    ALTER PUBLICATION supabase_realtime ADD TABLE appointments;
 EXCEPTION
-    WHEN undefined_object THEN NULL;
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
 END $$;
 
 --------------------------------------------------------------------------------

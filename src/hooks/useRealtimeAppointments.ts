@@ -17,7 +17,7 @@ export function useRealtimeAppointments(systemId?: string | null) {
     const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
     useEffect(() => {
-        // systemId가 없거나 이미 구독 중이면 스킵 (단, systemId가 바뀌면 재구독해야 함 -> 의존성 추가)
+        // systemId가 없으면 스킵
         if (!systemId) return
 
         // 기존 채널 있으면 정리 (systemId 변경 시)
@@ -34,30 +34,22 @@ export function useRealtimeAppointments(systemId?: string | null) {
                     event: '*',
                     schema: 'public',
                     table: 'appointments',
-                    filter: `system_id=eq.${systemId}`, // 내 병원의 변경만 수신!
+                    filter: `system_id=eq.${systemId}`, // 내 병원의 변경만 수신
                 },
-                () => {
+                (payload) => {
+                    console.log('[Realtime] appointments 변경 감지:', payload.eventType)
                     queryClient.invalidateQueries({ queryKey: ['appointments'] })
                     queryClient.invalidateQueries({ queryKey: ['statistics'] })
                 }
             )
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'profiles',
-                    filter: `system_id=eq.${systemId}`,
-                },
-                () => {
-                    queryClient.invalidateQueries({ queryKey: ['profiles'] })
-                    queryClient.invalidateQueries({ queryKey: ['statistics'] })
-                }
-            )
-            .subscribe((status) => {
-                // 에러 상태일 때만 출력
-                if (status === 'CHANNEL_ERROR') {
-                    console.error(`[Realtime] 구독 실패 (${systemId}):`, status)
+            .subscribe((status, err) => {
+                console.log(`[Realtime] 채널 상태: ${status}`, err ? `에러: ${err.message}` : '')
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Realtime] ✅ 실시간 구독 성공!')
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('[Realtime] ❌ 채널 에러 발생:', err)
+                } else if (status === 'TIMED_OUT') {
+                    console.error('[Realtime] ⏰ 연결 시간 초과')
                 }
             })
 
