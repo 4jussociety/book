@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { formatKST, parseKSTDateTime } from '@/lib/dateUtils'
-import { usePatients, useProfiles, useCreateAppointment, useUpdateAppointment, usePatientAppointments } from './useCalendar'
+import { useClients, useProfiles, useCreateAppointment, useUpdateAppointment, useClientAppointments } from './useCalendar'
 import { useQuery } from '@tanstack/react-query'
-import { getActiveMemberships } from '@/features/patients/membershipsApi'
-import PatientForm from '@/features/patients/PatientForm'
+import { getActiveMemberships } from '@/features/clients/membershipsApi'
+import ClientForm from '@/features/clients/ClientForm'
 import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
-import type { Appointment, Patient } from '@/types/db'
+import type { Appointment, Client } from '@/types/db'
 
 
 const appointmentSchema = z.object({
-    patient_id: z.string().optional(),
-    therapist_id: z.string().min(1, '치료사를 선택해주세요.'),
+    client_id: z.string().optional(),
+    instructor_id: z.string().min(1, '선생님을 선택해주세요.'),
     date: z.string().min(1, '날짜를 선택해주세요.'),
     start_time: z.string().min(1, '시작 시간을 선택해주세요.'),
     end_time: z.string().min(1, '종료 시간을 선택해주세요.'),
@@ -29,7 +29,7 @@ type AppointmentForm = z.infer<typeof appointmentSchema>
 type Props = {
     isOpen: boolean
     onClose: () => void
-    initialData?: { date: string; start_time: string; end_time?: string; therapist_id?: string } | null
+    initialData?: { date: string; start_time: string; end_time?: string; instructor_id?: string } | null
     editingAppointment?: Appointment | null
 }
 
@@ -37,14 +37,14 @@ type ModalStep = 'TYPE_SELECT' | 'PATIENT_SEARCH' | 'QUICK_CREATE' | 'DETAIL_FOR
 
 export default function AppointmentModal({ isOpen, onClose, initialData, editingAppointment }: Props) {
     const { profile: myProfile } = useAuth()
-    const { data: patients } = usePatients()
+    const { data: clients } = useClients()
     const { data: profiles } = useProfiles(myProfile?.system_id)
     const createMutation = useCreateAppointment()
     const updateMutation = useUpdateAppointment()
 
 
     const [step, setStep] = useState<ModalStep>('TYPE_SELECT')
-    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+    const [selectedClient, setselectedClient] = useState<Client | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
 
     const {
@@ -62,17 +62,28 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     })
 
     const eventType = watch('event_type')
+    const watchStartTime = watch('start_time')
+    const watchEndTime = watch('end_time')
+
+    // 시간 유효성 검증: 종료시간이 시작시간보다 앞서면 true
+    const isTimeInvalid = (() => {
+        if (!watchStartTime || !watchEndTime) return false
+        const [sh, sm] = watchStartTime.trim().split(':').map(Number)
+        const [eh, em] = watchEndTime.trim().split(':').map(Number)
+        if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return false
+        return (eh * 60 + em) <= (sh * 60 + sm)
+    })()
 
     useEffect(() => {
         if (isOpen) {
             if (editingAppointment) {
                 // ... (existing logic)
                 setStep('DETAIL_FORM')
-                setSelectedPatient(editingAppointment.patient || null)
+                setselectedClient(editingAppointment.client || null)
                 setValue('event_type', editingAppointment.event_type)
                 setValue('block_title', editingAppointment.block_title || '')
                 setValue('memo', editingAppointment.note || '')
-                setValue('therapist_id', editingAppointment.therapist_id)
+                setValue('instructor_id', editingAppointment.instructor_id)
                 setValue('membership_id', editingAppointment.membership_id || '')
 
                 const start = new Date(editingAppointment.start_time)
@@ -97,7 +108,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 setValue('end_time', formatKST(snappedEnd, 'HH:mm'))
             } else {
                 setStep('TYPE_SELECT')
-                setSelectedPatient(null)
+                setselectedClient(null)
                 setSearchQuery('')
 
                 reset({
@@ -110,7 +121,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 if (initialData) {
                     // ... (existing initialData logic)
                     setValue('date', initialData.date)
-                    setValue('therapist_id', initialData.therapist_id || myProfile?.id || '')
+                    setValue('instructor_id', initialData.instructor_id || myProfile?.id || '')
                     // ... (time logic)
                     if (initialData.end_time) {
                         setValue('start_time', initialData.start_time)
@@ -130,13 +141,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     }, [isOpen, initialData, editingAppointment, setValue, reset, myProfile])
 
 
-    const { data: patientHistory } = usePatientAppointments(selectedPatient?.id)
+    const { data: clientHistory } = useClientAppointments(selectedClient?.id)
 
-    // 선택된 환자의 ACTIVE 회원권 목록 조회
+    // 선택된 고객의 ACTIVE 회원권 목록 조회
     const { data: activeMemberships } = useQuery({
-        queryKey: ['activeMemberships', selectedPatient?.id],
-        queryFn: () => getActiveMemberships(selectedPatient!.id),
-        enabled: !!selectedPatient?.id,
+        queryKey: ['activeMemberships', selectedClient?.id],
+        queryFn: () => getActiveMemberships(selectedClient!.id),
+        enabled: !!selectedClient?.id,
     })
 
     const onSubmit = async (data: AppointmentForm) => {
@@ -149,13 +160,19 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
             const startDateTime = parseKSTDateTime(data.date, data.start_time)
             const endDateTime = parseKSTDateTime(data.date, data.end_time)
 
+            // 안전장치: 종료시간이 시작시간보다 앞서면 저장 차단
+            if (endDateTime <= startDateTime) {
+                alert('종료 시간은 시작 시간 이후여야 합니다.')
+                return
+            }
+
             if (editingAppointment) {
                 await updateMutation.mutateAsync({
                     id: editingAppointment.id,
                     updates: {
                         event_type: data.event_type,
-                        patient_id: data.event_type === 'APPOINTMENT' ? selectedPatient?.id || null : null,
-                        therapist_id: data.therapist_id,
+                        client_id: data.event_type === 'APPOINTMENT' ? selectedClient?.id || null : null,
+                        instructor_id: data.instructor_id,
                         start_time: startDateTime.toISOString(),
                         end_time: endDateTime.toISOString(),
                         note: data.memo, // 예약 메모에도 저장 (선택 사항)
@@ -167,8 +184,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
             } else {
                 await createMutation.mutateAsync({
                     event_type: data.event_type,
-                    patient_id: data.event_type === 'APPOINTMENT' ? selectedPatient?.id || null : null,
-                    therapist_id: data.therapist_id,
+                    client_id: data.event_type === 'APPOINTMENT' ? selectedClient?.id || null : null,
+                    instructor_id: data.instructor_id,
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
                     status: 'PENDING',
@@ -187,10 +204,10 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     if (!isOpen) return null
 
-    // Filtered patients for search
-    const patientList = (patients ?? []) as Patient[]
-    const filteredPatients = patientList.filter((p: Patient) =>
-        p.name.includes(searchQuery) || p.phone?.includes(searchQuery) || p.patient_no.toString().includes(searchQuery)
+    // Filtered clients for search
+    const ClientList = (clients ?? []) as Client[]
+    const filteredClients = ClientList.filter((p: Client) =>
+        p.name.includes(searchQuery) || p.phone?.includes(searchQuery) || p.client_no.toString().includes(searchQuery)
     )
 
     return (
@@ -212,8 +229,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                     <UserCheck className="w-6 h-6" />
                                 </div>
                                 <div className="flex-1">
-                                    <div className="text-lg font-bold text-gray-900 mb-0.5 leading-none">치료 예약 (재진/기본)</div>
-                                    <div className="text-xs text-gray-500 font-medium">기존 환자 또는 신규 환자 예약</div>
+                                    <div className="text-lg font-bold text-gray-900 mb-0.5 leading-none">수업 예약 (재방문/기본)</div>
+                                    <div className="text-xs text-gray-500 font-medium">기존 고객 또는 신규 고객 예약</div>
                                 </div>
                                 <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
                             </button>
@@ -234,11 +251,11 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     </div>
                 )}
 
-                {/* Patient Search Step... (Existing logic remains) */}
+                {/* Client Search Step... (Existing logic remains) */}
                 {step === 'PATIENT_SEARCH' && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-black text-gray-900">환자 검색</h2>
+                            <h2 className="text-xl font-black text-gray-900">고객 검색</h2>
                             <button onClick={() => setStep('TYPE_SELECT')} className="text-blue-600 font-bold text-xs hover:underline">이전으로</button>
                         </div>
                         <div className="relative mb-4">
@@ -259,25 +276,25 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                 }}
                                 className="w-full flex items-center justify-between p-3 bg-blue-50 text-blue-600 rounded-xl font-bold border border-blue-100 hover:bg-blue-100 transition-all shadow-sm text-sm"
                             >
-                                <span>+ 신규 환자로 등록하기</span>
+                                <span>+ 신규 고객으로 등록하기</span>
                                 <CheckCircle className="w-4 h-4" />
                             </button>
-                            {filteredPatients.map((p: Patient) => (
+                            {filteredClients.map((p: Client) => (
                                 <button
                                     key={p.id}
-                                    onClick={() => { setSelectedPatient(p); setStep('DETAIL_FORM') }}
+                                    onClick={() => { setselectedClient(p); setStep('DETAIL_FORM') }}
                                     className="w-full flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all text-left group"
                                 >
                                     <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
                                         <User className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-black text-gray-900 text-sm truncate">{p.name} <span className="text-gray-400 text-[10px] font-bold">{p.is_manual_no ? '' : '#'}{p.patient_no}</span></div>
+                                        <div className="font-black text-gray-900 text-sm truncate">{p.name} <span className="text-gray-400 text-[10px] font-bold">{p.is_manual_no ? '' : '#'}{p.client_no}</span></div>
                                         <div className="text-[10px] text-gray-500 font-medium truncate">{p.birth_date ? `${new Date().getFullYear() - parseInt(p.birth_date.substring(0, 4))}세` : '나이 정보 없음'} · {p.phone || '연락처 없음'}</div>
                                     </div>
                                 </button>
                             ))}
-                            {filteredPatients.length === 0 && searchQuery && (
+                            {filteredClients.length === 0 && searchQuery && (
                                 <div className="text-center py-6 text-gray-400">
                                     <div className="font-bold text-sm">검색 결과가 없습니다.</div>
                                 </div>
@@ -292,16 +309,16 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         <div className="flex justify-between items-center mb-5">
                             <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
                                 <UserCheck className="w-5 h-5 text-blue-600" />
-                                신규 환자 등록
+                                신규 고객 등록
                             </h2>
                             <button onClick={() => setStep('PATIENT_SEARCH')} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                         </div>
 
-                        <PatientForm
+                        <ClientForm
                             initialData={null}
                             defaultName={searchQuery}
-                            onSuccess={(newPatient) => {
-                                setSelectedPatient(newPatient)
+                            onSuccess={(newClient) => {
+                                setselectedClient(newClient)
                                 setStep('DETAIL_FORM')
                             }}
                             onCancel={() => setStep('PATIENT_SEARCH')}
@@ -326,12 +343,12 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-auto scrollbar-hide">
 
-                            {/* Row 1: Patient/Title & Therapist */}
+                            {/* Row 1: Client/Title & Instructor */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {/* Col 1 */}
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">
-                                        {eventType === 'BLOCK' ? '잠금 제목' : '환자 정보'}
+                                        {eventType === 'BLOCK' ? '잠금 제목' : '고객 정보'}
                                     </label>
                                     {eventType === 'APPOINTMENT' ? (
                                         <div className="space-y-2">
@@ -341,10 +358,10 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="text-sm font-black text-gray-900 truncate leading-none">
-                                                        {selectedPatient ? selectedPatient.name : '신규'}
+                                                        {selectedClient ? selectedClient.name : '신규'}
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
-                                                        {selectedPatient && <span className="text-[10px] text-gray-500 font-medium truncate">{selectedPatient.is_manual_no ? '' : '#'}{selectedPatient.patient_no}</span>}
+                                                        {selectedClient && <span className="text-[10px] text-gray-500 font-medium truncate">{selectedClient.is_manual_no ? '' : '#'}{selectedClient.client_no}</span>}
                                                         {editingAppointment?.visit_count && (
                                                             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
                                                                 {editingAppointment.visit_count}회차
@@ -361,8 +378,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                     <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
                                                 )}
                                             </div>
-                                            {/* 회원권 선택 (환자가 활성화된 회원권이 있을 경우) */}
-                                            {selectedPatient && activeMemberships && activeMemberships.length > 0 && (
+                                            {/* 회원권 선택 (고객이 활성화된 회원권이 있을 경우) */}
+                                            {selectedClient && activeMemberships && activeMemberships.length > 0 && (
                                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                                                     <label className="block text-[10px] font-black text-amber-600 mb-1 ml-1 flex items-center gap-1">🎟️ 회원권 적용</label>
                                                     <select
@@ -391,9 +408,9 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
                                 {/* Col 2 */}
                                 <div>
-                                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">담당 치료사</label>
+                                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">담당 선생님</label>
                                     <select
-                                        {...register('therapist_id')}
+                                        {...register('instructor_id')}
                                         className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold cursor-pointer transition-all text-xs h-[42px]"
                                     >
                                         <option value="">선택</option>
@@ -443,7 +460,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                             </div>
                                         </div>
                                         <div>
-                                            <span className="block text-[9px] text-gray-400 font-bold mb-0.5 ml-1">종료</span>
+                                            <span className={`block text-[9px] font-bold mb-0.5 ml-1 ${isTimeInvalid ? 'text-red-500' : 'text-gray-400'}`}>종료 {isTimeInvalid && '⚠️'}</span>
                                             <div className="flex gap-1">
                                                 <select
                                                     value={watch('end_time')?.split(':')[0] || '10'}
@@ -452,7 +469,10 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                         const m = watch('end_time')?.split(':')[1] || '00'
                                                         setValue('end_time', `${h}:${m}`)
                                                     }}
-                                                    className="w-full px-1 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold cursor-pointer transition-all text-xs h-[42px] text-center appearance-none"
+                                                    className={`w-full px-1 py-2.5 rounded-xl outline-none font-bold cursor-pointer transition-all text-xs h-[42px] text-center appearance-none ${isTimeInvalid
+                                                        ? 'bg-red-50 border-2 border-red-400 text-red-600 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
+                                                        : 'bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+                                                        }`}
                                                 >
                                                     {Array.from({ length: 19 }, (_, i) => i + 6).map(h => (
                                                         <option key={h} value={h.toString().padStart(2, '0')}>{h}시</option>
@@ -465,13 +485,21 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                         const m = e.target.value
                                                         setValue('end_time', `${h}:${m}`)
                                                     }}
-                                                    className="w-full px-1 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold cursor-pointer transition-all text-xs h-[42px] text-center appearance-none"
+                                                    className={`w-full px-1 py-2.5 rounded-xl outline-none font-bold cursor-pointer transition-all text-xs h-[42px] text-center appearance-none ${isTimeInvalid
+                                                        ? 'bg-red-50 border-2 border-red-400 text-red-600 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
+                                                        : 'bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+                                                        }`}
                                                 >
                                                     {['00', '10', '20', '30', '40', '50'].map(m => (
                                                         <option key={m} value={m}>{m}분</option>
                                                     ))}
                                                 </select>
                                             </div>
+                                            {isTimeInvalid && (
+                                                <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    종료 시간은 시작 시간 이후여야 합니다.
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -479,13 +507,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
                             {/* Row 3: Memo (History & New) */}
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-black text-gray-500 ml-1">메모 (환자 히스토리)</label>
+                                <label className="block text-[10px] font-black text-gray-500 ml-1">메모 (고객 히스토리)</label>
 
                                 {/* 1. History View (Appointment Notes) */}
-                                {selectedPatient && patientHistory && (
+                                {selectedClient && clientHistory && (
                                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-[120px] overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap mb-2 space-y-2 scrollbar-thin scrollbar-thumb-amber-200">
                                         <div className="text-[9px] text-amber-500 font-bold mb-1 sticky top-0 bg-amber-50 pb-1 border-b border-amber-100">이전 기록</div>
-                                        {patientHistory.filter(app => app.note).map(app => (
+                                        {clientHistory.filter(app => app.note).map(app => (
                                             <div key={app.id} className="border-b border-amber-100 last:border-0 pb-1 last:pb-0">
                                                 <span className="text-[10px] text-amber-600 font-bold block mb-0.5">
                                                     [{formatKST(new Date(app.start_time), 'yyyy-MM-dd HH:mm')}]
@@ -493,7 +521,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 {app.note}
                                             </div>
                                         ))}
-                                        {patientHistory.filter(app => app.note).length === 0 && (
+                                        {clientHistory.filter(app => app.note).length === 0 && (
                                             <div className="text-gray-400 text-center py-2">기록 없음</div>
                                         )}
                                     </div>
@@ -503,14 +531,14 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                 <textarea
                                     {...register('memo')}
                                     rows={3}
-                                    placeholder={selectedPatient ? "새로운 메모를 입력하세요 (저장 시 날짜와 함께 상단에 추가됩니다)" : "메모 입력..."}
+                                    placeholder={selectedClient ? "새로운 메모를 입력하세요 (저장 시 날짜와 함께 상단에 추가됩니다)" : "메모 입력..."}
                                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs resize-none transition-all placeholder:font-medium"
                                 />
                             </div>
 
                             {/* Footer Info */}
                             <div className="text-[10px] text-gray-400 bg-gray-50 p-3 rounded-lg text-center leading-relaxed">
-                                환자정보, 담당 치료사 정보는 예약완료 후<br />환자 관리에서도 수정가능합니다.
+                                고객정보, 담당 선생님 정보는 예약완료 후<br />고객 관리에서도 수정가능합니다.
                             </div>
                         </div>
 
@@ -534,8 +562,11 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                             </button>
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
-                                className="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 text-sm"
+                                disabled={isSubmitting || isTimeInvalid}
+                                className={`flex-[2] py-3 rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-2 text-sm ${isTimeInvalid
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'
+                                    }`}
                             >
                                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : '저장하기'}
                             </button>

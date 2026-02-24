@@ -13,7 +13,7 @@ export type Profile = {
 
     // DB에는 없지만 Context에서 조인/주입되어 사용되는 런타임 속성
     system_id?: string | null
-    role?: 'owner' | 'staff' | 'therapist' | 'pending_admin'
+    role?: 'owner' | 'staff' | 'instructor' | 'pending_admin'
     is_owner?: boolean
     organization_name?: string
     contact_number?: string
@@ -33,7 +33,7 @@ export type System = {
     organization_name: string | null
     contact_number: string | null
     admin_name: string | null
-    last_patient_no: number
+    last_client_no: number
 }
 
 export type PricingSetting = {
@@ -55,10 +55,10 @@ export type MessageTemplate = {
     updated_at: string
 }
 
-export type PatientMembership = {
+export type ClientMembership = {
     id: string
     system_id: string
-    patient_id: string
+    client_id: string
     name: string
     total_sessions: number
     used_sessions: number
@@ -70,9 +70,9 @@ export type PatientMembership = {
     updated_at: string
 }
 
-export type Patient = {
+export type Client = {
     id: string
-    patient_no: number
+    client_no: number
     is_manual_no?: boolean
     name: string
     gender: 'MALE' | 'FEMALE' | 'M' | 'F'
@@ -91,8 +91,8 @@ export type EventType = 'APPOINTMENT' | 'BLOCK'
 export type Appointment = {
     id: string
     event_type: EventType
-    therapist_id: string
-    patient_id: string | null
+    instructor_id: string
+    client_id: string | null
     start_time: string
     end_time: string
     status: AppointmentStatus
@@ -107,9 +107,9 @@ export type Appointment = {
     membership_id?: string | null // 회원권 연동 ID
 
     // Joins
-    patient?: Patient
-    therapist?: Profile
-    membership?: PatientMembership
+    client?: Client
+    instructor?: Profile
+    membership?: ClientMembership
 }
 
 export type SystemMember = {
@@ -117,6 +117,6 @@ export type SystemMember = {
     system_id: string
     user_id: string
     status: 'pending' | 'approved' | 'rejected'
-    role: 'owner' | 'therapist' | 'staff'
+    role: 'owner' | 'instructor' | 'staff'
     created_at: string
 }

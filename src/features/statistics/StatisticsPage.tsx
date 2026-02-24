@@ -1,5 +1,5 @@
-// StatisticsPage: 통계 대시보드 페이지 (전면 리디자인)
-// 좌측 치료사 세로 사이드바, 치료사별 치료시간 매트릭스, SVG 시간대 차트
+﻿// StatisticsPage: 통계 대시보드 페이지 (전면 리디자인)
+// 좌측 선생님 세로 사이드바, 선생님별 수업시간 매트릭스, SVG 시간대 차트
 
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -59,7 +59,7 @@ export default function StatisticsPage() {
         return getWeekOfMonth(new Date(), { weekStartsOn: 0 }) - 1
     }, [])
     const [selectedWeekIndex, setSelectedWeekIndex] = useState(currentWeekOfMonth)
-    const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null)
+    const [selectedInstructorId, setselectedInstructorId] = useState<string | null>(null)
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
 
@@ -128,9 +128,9 @@ export default function StatisticsPage() {
 
     const { data: stats, isLoading: loading } = useQuery<StatsData>({
         // prices가 변경되면 쿼리를 재실행하여 매출을 다시 계산
-        queryKey: ['statistics', dateRange, selectedTherapistId, prices, profile?.system_id],
+        queryKey: ['statistics', dateRange, selectedInstructorId, prices, profile?.system_id],
         queryFn: async () => {
-            const data = await fetchStats(dateRange, selectedTherapistId || undefined, prices, profile?.system_id || undefined)
+            const data = await fetchStats(dateRange, selectedInstructorId || undefined, prices, profile?.system_id || undefined)
             return data
         },
         staleTime: 1000 * 60 * 5, // 5분
@@ -141,14 +141,14 @@ export default function StatisticsPage() {
     const handleExport = () => {
         if (!stats) return
         const csvRows = [
-            ['치료사', '총예약', '완료', '취소', '노쇼', '신환', '재방문', '평균시간(분)',
+            ['선생님', '총예약', '완료', '취소', '노쇼', '신규', '재방문', '평균시간(분)',
                 ...DURATION_BUCKETS.map(b => BUCKET_LABELS[b])],
-            ...stats.therapist_performance.map(t => {
-                const breakdown = stats.therapist_duration_breakdown.find(d => d.therapist_id === t.therapist_id)
+            ...stats.instructor_performance.map(t => {
+                const breakdown = stats.instructor_duration_breakdown.find(d => d.instructor_id === t.instructor_id)
                 return [
-                    t.therapist_name, t.total_appointments, t.completed_appointments,
+                    t.instructor_name, t.total_appointments, t.completed_appointments,
                     t.cancelled_appointments, t.noshow_appointments,
-                    t.new_patients, t.returning_patients, t.avg_duration_min,
+                    t.new_clients, t.returning_clients, t.avg_duration_min,
                     ...DURATION_BUCKETS.map(b => breakdown?.durations[b] || 0),
                 ]
             }),
@@ -177,7 +177,7 @@ export default function StatisticsPage() {
     const activeBuckets = useMemo(() => {
         if (!stats) return []
         const bucketSet = new Set<number>()
-        stats.therapist_duration_breakdown.forEach(t => {
+        stats.instructor_duration_breakdown.forEach(t => {
             Object.keys(t.durations).forEach(k => {
                 if (t.durations[Number(k)] > 0) bucketSet.add(Number(k))
             })
@@ -204,13 +204,13 @@ export default function StatisticsPage() {
 
     return (
         <div className="flex flex-col md:flex-row h-full overflow-hidden">
-            {/* ── 모바일: 상단 치료사 필터 (가로 스크롤) ── */}
+            {/* ── 모바일: 상단 선생님 필터 (가로 스크롤) ── */}
             {isMobile && (
                 <div className="flex-shrink-0 bg-white border-b border-gray-100 px-3 py-2 overflow-x-auto scrollbar-hide">
                     <div className="flex gap-1.5 min-w-max">
                         <button
-                            onClick={() => setSelectedTherapistId(null)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${!selectedTherapistId
+                            onClick={() => setselectedInstructorId(null)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${!selectedInstructorId
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-gray-100 text-gray-600'
                                 }`}
@@ -220,8 +220,8 @@ export default function StatisticsPage() {
                         {profiles?.map((p: Profile) => (
                             <button
                                 key={p.id}
-                                onClick={() => setSelectedTherapistId(p.id)}
-                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${selectedTherapistId === p.id
+                                onClick={() => setselectedInstructorId(p.id)}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${selectedInstructorId === p.id
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-100 text-gray-600'
                                     }`}
@@ -233,16 +233,16 @@ export default function StatisticsPage() {
                 </div>
             )}
 
-            {/* ── 데스크톱: 좌측 치료사 사이드바 ── */}
+            {/* ── 데스크톱: 좌측 선생님 사이드바 ── */}
             {!isMobile && (
                 <aside className="w-44 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
                     <div className="p-4 border-b border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">치료사</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">선생님</p>
                     </div>
                     <div className="p-2 flex flex-col gap-1 flex-1">
                         <button
-                            onClick={() => setSelectedTherapistId(null)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${!selectedTherapistId
+                            onClick={() => setselectedInstructorId(null)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${!selectedInstructorId
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'text-gray-600 hover:bg-gray-50'
                                 }`}
@@ -253,8 +253,8 @@ export default function StatisticsPage() {
                         {profiles?.map((p: Profile) => (
                             <div key={p.id} className="relative group/item">
                                 <button
-                                    onClick={() => setSelectedTherapistId(p.id)}
-                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left w-full ${selectedTherapistId === p.id
+                                    onClick={() => setselectedInstructorId(p.id)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left w-full ${selectedInstructorId === p.id
                                         ? 'bg-blue-600 text-white shadow-sm'
                                         : 'text-gray-600 hover:bg-gray-50'
                                         }`}
@@ -262,7 +262,7 @@ export default function StatisticsPage() {
                                     <User className="w-3.5 h-3.5 flex-shrink-0" />
                                     <span className="truncate flex-1">{p.full_name || p.name}</span>
                                     {p.incentive_percentage != null && p.incentive_percentage > 0 && (
-                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-md ${selectedTherapistId === p.id ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-md ${selectedInstructorId === p.id ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>
                                             {p.incentive_percentage}%
                                         </span>
                                     )}
@@ -462,19 +462,19 @@ export default function StatisticsPage() {
                     <SummaryCard
                         compact
                         icon={<UserPlus className="w-3.5 h-3.5" />}
-                        label="신규 환자"
-                        value={stats.summary.new_patients} unit="명"
+                        label="신규 고객"
+                        value={stats.summary.new_clients} unit="명"
                         iconBg="bg-purple-50" iconColor="text-purple-600" valueColor="text-purple-600"
                     />
                 </div>
 
-                {/* 치료사별 치료시간 매트릭스 */}
-                {stats.therapist_duration_breakdown.length > 0 && activeBuckets.length > 0 && (
+                {/* 선생님별 수업시간 매트릭스 */}
+                {stats.instructor_duration_breakdown.length > 0 && activeBuckets.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-black text-gray-900">치료사별 치료시간 실적</h3>
-                                <p className="text-[10px] text-gray-400 mt-0.5">치료 시간 구간별 예약 건수</p>
+                                <h3 className="text-sm font-black text-gray-900">선생님별 수업시간 실적</h3>
+                                <p className="text-[10px] text-gray-400 mt-0.5">수업 시간 구간별 예약 건수</p>
                             </div>
                             {/* 범례 */}
                             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -489,7 +489,7 @@ export default function StatisticsPage() {
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-gray-50/80 border-b border-gray-100">
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider w-32">치료사</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider w-32">선생님</th>
                                         {activeBuckets.map(b => (
                                             <th key={b} className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">
                                                 {BUCKET_LABELS[b]}
@@ -499,18 +499,18 @@ export default function StatisticsPage() {
                                         <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">완료</th>
                                         <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">매출/인센티브</th>
                                         <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">노쇼</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">신규환자</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center whitespace-nowrap">신규고객</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {stats.therapist_duration_breakdown.map(t => {
-                                        const perf = stats.therapist_performance.find(p => p.therapist_id === t.therapist_id)
+                                    {stats.instructor_duration_breakdown.map(t => {
+                                        const perf = stats.instructor_performance.find(p => p.instructor_id === t.instructor_id)
                                         const rowTotal = activeBuckets.reduce((s, b) => s + (t.durations[b] || 0), 0)
                                         const maxInRow = Math.max(...activeBuckets.map(b => t.durations[b] || 0), 1)
                                         return (
-                                            <tr key={t.therapist_id} className="hover:bg-blue-50/20 transition-colors">
+                                            <tr key={t.instructor_id} className="hover:bg-blue-50/20 transition-colors">
                                                 <td className="px-5 py-4">
-                                                    <span className="font-black text-sm text-gray-900">{t.therapist_name}</span>
+                                                    <span className="font-black text-sm text-gray-900">{t.instructor_name}</span>
                                                 </td>
                                                 {activeBuckets.map(b => {
                                                     const cnt = t.durations[b] || 0
@@ -558,7 +558,7 @@ export default function StatisticsPage() {
                                                 </td>
                                                 <td className="px-5 py-4 text-center">
                                                     <span className="inline-flex items-center px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-xs font-black">
-                                                        {perf?.new_patients ?? 0}명
+                                                        {perf?.new_clients ?? 0}명
                                                     </span>
                                                 </td>
                                             </tr>

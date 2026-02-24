@@ -1,5 +1,5 @@
-// 통계 API: Supabase에서 실제 데이터를 조회하여 통계 생성
-// 기간별 예약 집계, 치료사별 실적, 시간대 분포, 치료사별 치료시간 구간 집계
+﻿// 통계 API: Supabase에서 실제 데이터를 조회하여 통계 생성
+// 기간별 예약 집계, 선생님별 실적, 시간대 분포, 선생님별 수업시간 구간 집계
 
 import { supabase } from '@/lib/supabase'
 import { format, eachDayOfInterval, differenceInMinutes, parseISO } from 'date-fns'
@@ -23,7 +23,7 @@ export type DurationPrice = { durationMin: number; priceKrw: number }
 
 export const fetchStats = async (
     range: DateRange,
-    therapistId?: string,
+    instructorId?: string,
     prices: DurationPrice[] = [],
     systemId?: string
 ): Promise<StatsData> => {
@@ -45,14 +45,14 @@ export const fetchStats = async (
         .from('appointments')
         .select(`
             *,
-            therapist:profiles(full_name, incentive_percentage)
+            instructor:profiles(full_name, incentive_percentage)
         `)
         .gte('start_time', startISO)
         .lte('start_time', endISO)
         .order('start_time', { ascending: true })
 
-    if (therapistId) {
-        query = query.eq('therapist_id', therapistId)
+    if (instructorId) {
+        query = query.eq('instructor_id', instructorId)
     }
     if (systemId) {
         query = query.eq('system_id', systemId)
@@ -81,8 +81,8 @@ export const fetchStats = async (
         .filter(a => a.status === 'COMPLETED')
         .reduce((sum, a) => sum + getPrice(a.start_time, a.end_time), 0)
 
-    const newPatients = new Set(
-        appts.filter(a => a.visit_count === 1).map(a => a.patient_id)
+    const newClients = new Set(
+        appts.filter(a => a.visit_count === 1).map(a => a.client_id)
     ).size
 
     const noshowRate = total > 0 ? Math.round((noshow / total) * 1000) / 10 : 0
@@ -93,7 +93,7 @@ export const fetchStats = async (
         cancelled_reservations: cancelled,
         noshow_reservations: noshow,
         pending_reservations: pending,
-        new_patients: newPatients,
+        new_clients: newClients,
         noshow_rate: noshowRate,
         total_revenue: totalRevenue,
     }
@@ -111,41 +111,41 @@ export const fetchStats = async (
         count: hourCounts[i + distStart] || 0,
     }))
 
-    // 치료사별 실적 + 시간 구간별 집계
-    type TherapistAccum = {
-        therapist_id: string
-        therapist_name: string
+    // 선생님별 실적 + 시간 구간별 집계
+    type InstructorAccum = {
+        instructor_id: string
+        instructor_name: string
         total: number
         completed: number
         cancelled: number
         noshow: number
-        newPatientIds: Set<string>
-        returningPatientIds: Set<string>
+        newclientIds: Set<string>
+        returningclientIds: Set<string>
         totalDuration: number
         durationCounts: Record<number, number>  // 구간별 전체 건수
         revenue: number
         incentivePercent: number
     }
 
-    const therapistMap = new Map<string, TherapistAccum>()
+    const instructorMap = new Map<string, InstructorAccum>()
 
     appts.forEach((a: Appointment) => {
-        const tid = a.therapist_id as string
-        if (!therapistMap.has(tid)) {
-            const therapist = a.therapist as { full_name: string, incentive_percentage?: number } | null
-            therapistMap.set(tid, {
-                therapist_id: tid,
-                therapist_name: therapist?.full_name || '알 수 없음',
+        const tid = a.instructor_id as string
+        if (!instructorMap.has(tid)) {
+            const instructor = a.instructor as { full_name: string, incentive_percentage?: number } | null
+            instructorMap.set(tid, {
+                instructor_id: tid,
+                instructor_name: instructor?.full_name || '알 수 없음',
                 total: 0, completed: 0, cancelled: 0, noshow: 0,
-                newPatientIds: new Set(),
-                returningPatientIds: new Set(),
+                newclientIds: new Set(),
+                returningclientIds: new Set(),
                 totalDuration: 0,
                 durationCounts: {},
                 revenue: 0,
-                incentivePercent: therapist?.incentive_percentage || 0,
+                incentivePercent: instructor?.incentive_percentage || 0,
             })
         }
-        const t = therapistMap.get(tid)!
+        const t = instructorMap.get(tid)!
         t.total++
 
         // 시간 구간 집계 (전체 예약 기준)
@@ -167,32 +167,32 @@ export const fetchStats = async (
         if (a.status === 'CANCELLED') t.cancelled++
         if (a.status === 'NOSHOW') t.noshow++
 
-        const pid = a.patient_id as string
+        const pid = a.client_id as string
         if (pid) {
-            if ((a.visit_count as number) === 1) t.newPatientIds.add(pid)
-            else t.returningPatientIds.add(pid)
+            if ((a.visit_count as number) === 1) t.newclientIds.add(pid)
+            else t.returningclientIds.add(pid)
         }
     })
 
-    const therapist_performance = Array.from(therapistMap.values()).map(t => ({
-        therapist_id: t.therapist_id,
-        therapist_name: t.therapist_name,
+    const instructor_performance = Array.from(instructorMap.values()).map(t => ({
+        instructor_id: t.instructor_id,
+        instructor_name: t.instructor_name,
         total_appointments: t.total,
         completed_appointments: t.completed,
         cancelled_appointments: t.cancelled,
         noshow_appointments: t.noshow,
-        new_patients: t.newPatientIds.size,
-        returning_patients: t.returningPatientIds.size,
+        new_clients: t.newclientIds.size,
+        returning_clients: t.returningclientIds.size,
         avg_duration_min: t.completed > 0 ? Math.round(t.totalDuration / t.completed) : 0,
         revenue: t.revenue,
         incentive_rate: t.incentivePercent,
         incentive: Math.round(t.revenue * (t.incentivePercent / 100)),
     }))
 
-    // 치료사별 치료 시간 구간 실적
-    const therapist_duration_breakdown = Array.from(therapistMap.values()).map(t => ({
-        therapist_id: t.therapist_id,
-        therapist_name: t.therapist_name,
+    // 선생님별 수업 시간 구간 실적
+    const instructor_duration_breakdown = Array.from(instructorMap.values()).map(t => ({
+        instructor_id: t.instructor_id,
+        instructor_name: t.instructor_name,
         durations: t.durationCounts,
         total: t.total,
     }))
@@ -239,8 +239,8 @@ export const fetchStats = async (
     return {
         summary,
         time_distribution,
-        therapist_performance,
-        therapist_duration_breakdown,
+        instructor_performance,
+        instructor_duration_breakdown,
         daily_trend,
         duration_distribution,
     }

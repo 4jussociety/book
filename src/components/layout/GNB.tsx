@@ -20,7 +20,7 @@ export default function GNB() {
 
     const navItems = [
         { label: '예약 관리', href: '/calendar', icon: CalendarDays },
-        { label: '환자 관리', href: '/patients', icon: Users },
+        { label: '고객 관리', href: '/clients', icon: Users },
     ]
 
     if (profile?.is_owner) {

@@ -1,4 +1,4 @@
-// SystemSetupModal: 새 시스템(병원/센터) 개설 모달
+﻿// SystemSetupModal: 새 시스템(병원/센터) 개설 모달
 // 10자리 숫자 일련번호 생성 및 시스템 등록 처리
 
 import { useState } from 'react'
@@ -26,33 +26,24 @@ export default function SystemSetupModal() {
         setError(null)
 
         try {
-            // 중복 방지: 최대 5회 재시도 (기존 구조 유지하되 일련번호는 일단 하드코딩 빈값 삽입)
-            // 참고: 추후 DB에서 serial_number 컬럼이 완전히 필요없어지면 insert 내용도 수정해야함
+            // 시스템 생성
             let system = null
-            for (let attempt = 0; attempt < 1; attempt++) {
-                const { data, error: insertError } = await supabase
-                    .from('systems')
-                    .insert({
-                        name: `${user.user_metadata?.full_name || user.email?.split('@')[0] || '원장'}님의 시스템`,
-                        owner_id: user.id,
-                    })
-                    .select()
-                    .single()
+            const { data, error: insertError } = await supabase
+                .from('systems')
+                .insert({
+                    name: `${user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'}님의 시스템`,
+                    owner_id: user.id,
+                })
+                .select()
+                .single()
 
-                if (!insertError && data) {
-                    system = data
-                    break
-                } else if (insertError) {
-                    console.error('System Insert Error:', insertError)
-                }
-
-                // 중복 에러가 아니면 즉시 throw
-                if (insertError && !insertError.message.includes('unique') && !insertError.message.includes('duplicate')) {
-                    throw insertError
-                }
+            if (insertError) {
+                console.error('System Insert Error:', insertError)
+                throw insertError
             }
+            system = data
 
-            if (!system) throw new Error('일련번호 생성에 실패했습니다. 잠시 후 다시 시도해주세요.')
+            if (!system) throw new Error('시스템 생성에 실패했습니다. 잠시 후 다시 시도해주세요.')
 
             // 1. 프로필 업데이트 (기본 정보) -> 없으면 생성
             const { error: profileError } = await supabase
@@ -60,7 +51,7 @@ export default function SystemSetupModal() {
                 .upsert({
                     id: user.id,
                     email: user.email,
-                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Therapist'
+                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'instructor'
                 })
 
             if (profileError) {
@@ -81,6 +72,44 @@ export default function SystemSetupModal() {
             if (memberError && !memberError.message?.includes('duplicate')) {
                 console.error('Member Insert Error:', memberError)
                 throw memberError
+            }
+
+            // 3. 관리자 본인을 선생님(instructor)으로 자동 발급
+            // 이메일: {adminId}@thept.shop (관리자 도메인 @thept.co.kr과 구분)
+            try {
+                const adminId = user.email?.split('@')[0] || 'admin'
+                const instructorEmail = `${adminId}@thept.shop`
+                const instructorName = user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'
+
+                const { data: sessionData } = await supabase.auth.getSession()
+                if (sessionData.session) {
+                    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+                    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+                    const response = await fetch(`${supabaseUrl}/functions/v1/create-member`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionData.session.access_token}`,
+                            'apikey': supabaseAnonKey
+                        },
+                        body: JSON.stringify({
+                            systemId: system.id,
+                            email: instructorEmail,
+                            password: '000000',
+                            name: instructorName,
+                            role: 'instructor'
+                        })
+                    })
+
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => null)
+                        console.warn('선생님 자동 발급 실패 (시스템 생성은 정상):', errData?.error || response.status)
+                    }
+                }
+            } catch (autoMemberErr) {
+                // 선생님 자동 발급 실패해도 시스템 생성 자체는 성공 처리
+                console.warn('선생님 자동 발급 중 예외 (시스템 생성은 정상):', autoMemberErr)
             }
 
             setIsSystemCreated(true)
@@ -110,7 +139,7 @@ export default function SystemSetupModal() {
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">시스템 개설 완료!</h2>
                     <p className="text-gray-500 mb-6 leading-relaxed">
                         이제부터 새로운 스케줄 관리와<br />
-                        환자 관리를 시작할 수 있습니다.
+                        고객 관리를 시작할 수 있습니다.
                     </p>
                     <p className="text-xs text-gray-400 mb-6">
                         3초 후 자동으로 메인 페이지로 이동합니다...
@@ -144,7 +173,7 @@ export default function SystemSetupModal() {
 
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">스케줄 시스템 개설</h2>
                 <p className="text-gray-500 mb-8 leading-relaxed">
-                    환자 관리와 치료 일정을 시작하기 위해<br />
+                    고객 관리와 수업 일정을 시작하기 위해<br />
                     새로운 스케줄 시스템을 개설하시겠습니까?
                 </p>
 

@@ -89,7 +89,7 @@ export default function AccessPendingScreen() {
 
                 {isRejected && (
                     <div className="bg-red-50 p-4 rounded-xl mb-6 text-red-600 text-sm">
-                        ⚠️ 다른 일련번호로 다시 시도하거나 관리자에게 문의하세요.
+                        ⚠️ 관리자에게 문의하여 다시 시도해주세요.
                     </div>
                 )}
 

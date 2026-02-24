@@ -1,14 +1,14 @@
-import PatientForm from './PatientForm'
+﻿import ClientForm from './ClientForm'
 import { X } from 'lucide-react'
-import type { Patient } from '@/types/db'
+import type { Client } from '@/types/db'
 
 type Props = {
     isOpen: boolean
     onClose: () => void
-    initialData: Patient | null
+    initialData: Client | null
 }
 
-export default function PatientModal({ isOpen, onClose, initialData }: Props) {
+export default function ClientModal({ isOpen, onClose, initialData }: Props) {
     if (!isOpen) return null
 
     return (
@@ -22,10 +22,10 @@ export default function PatientModal({ isOpen, onClose, initialData }: Props) {
                 </button>
 
                 <h2 className="text-xl font-black text-gray-900 mb-6">
-                    {initialData ? '환자 정보 수정' : '새 환자 등록'}
+                    {initialData ? '고객 정보 수정' : '새 고객 등록'}
                 </h2>
 
-                <PatientForm
+                <ClientForm
                     initialData={initialData}
                     onSuccess={() => onClose()}
                     onCancel={onClose}

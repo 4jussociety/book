@@ -1,4 +1,4 @@
-import type { Appointment } from '@/types/db'
+﻿import type { Appointment } from '@/types/db'
 import { format, isPast, differenceInMinutes } from 'date-fns'
 import { clsx } from 'clsx'
 
@@ -87,11 +87,11 @@ export function DraggableAppointmentContent({
                 <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
                         <span className={clsx("font-black truncate", isSmall ? "text-[11px]" : "text-[13px]")}>
-                            {appointment.event_type === 'BLOCK' ? appointment.block_title || '잠금' : appointment.patient?.name || 'Unknown'}
+                            {appointment.event_type === 'BLOCK' ? appointment.block_title || '잠금' : appointment.client?.name || 'Unknown'}
                         </span>
                         {appointment.event_type === 'APPOINTMENT' && !isSmall && (
                             <span className={clsx("text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter", config.badge)}>
-                                {appointment.patient?.is_manual_no ? '' : '#'}{appointment.patient?.patient_no || '...'}
+                                {appointment.client?.is_manual_no ? '' : '#'}{appointment.client?.client_no || '...'}
                             </span>
                         )}
                     </div>

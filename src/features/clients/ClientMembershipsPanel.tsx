@@ -1,16 +1,16 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getPatientMemberships, createMembership, deleteMembership } from './membershipsApi'
-import type { PatientMembership } from '@/types/db'
+import { getClientMemberships, createMembership, deleteMembership } from './membershipsApi'
+import type { ClientMembership } from '@/types/db'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '@/features/auth/AuthContext'
 
 type Props = {
-    patientId: string
+    clientId: string
 }
 
-export default function PatientMembershipsPanel({ patientId }: Props) {
+export default function ClientMembershipsPanel({ clientId }: Props) {
     const { profile } = useAuth()
     const queryClient = useQueryClient()
     const [isCreating, setIsCreating] = useState(false)
@@ -22,21 +22,21 @@ export default function PatientMembershipsPanel({ patientId }: Props) {
     })
 
     const { data: memberships, isLoading } = useQuery({
-        queryKey: ['memberships', patientId],
-        queryFn: () => getPatientMemberships(patientId)
+        queryKey: ['memberships', clientId],
+        queryFn: () => getClientMemberships(clientId)
     })
 
     const createMutation = useMutation({
-        mutationFn: async (data: Partial<PatientMembership>) => {
+        mutationFn: async (data: Partial<ClientMembership>) => {
             return await createMembership({
                 ...data,
-                patient_id: patientId,
+                client_id: clientId,
                 system_id: profile?.system_id!,
             })
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['memberships', patientId] })
-            queryClient.invalidateQueries({ queryKey: ['patients'] })
+            queryClient.invalidateQueries({ queryKey: ['memberships', clientId] })
+            queryClient.invalidateQueries({ queryKey: ['clients'] })
             setIsCreating(false)
             setFormData({
                 name: '10회권 패키지',
@@ -51,8 +51,8 @@ export default function PatientMembershipsPanel({ patientId }: Props) {
     const deleteMutation = useMutation({
         mutationFn: deleteMembership,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['memberships', patientId] })
-            queryClient.invalidateQueries({ queryKey: ['patients'] })
+            queryClient.invalidateQueries({ queryKey: ['memberships', clientId] })
+            queryClient.invalidateQueries({ queryKey: ['clients'] })
         },
         onError: (err) => alert('삭제 실패: ' + err.message)
     })

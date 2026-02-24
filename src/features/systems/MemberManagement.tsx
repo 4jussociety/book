@@ -1,27 +1,28 @@
-// MemberManagement: 관리자용 멤버 관리 페이지
-// 소유자가 직접 멤버(치료사/스태프)의 ID와 비밀번호를 발급하여 시스템에 등록합니다.
+﻿// MemberManagement: 관리자용 멤버 관리 페이지
+// 소유자가 직접 멤버(선생님/스태프)의 ID와 비밀번호를 발급하여 시스템에 등록합니다.
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
-import { Check, X, Loader2, Users, Shield, Stethoscope, Trash2, Plus, Key, ShieldAlert } from 'lucide-react'
+import { Check, X, Loader2, Users, Shield, Stethoscope, Trash2, Plus, Key, ShieldAlert, Pencil } from 'lucide-react'
 
 type GuestRequest = {
     id: string
     status: string
     created_at: string
     user_id: string
-    role?: 'therapist' | 'staff' | string
+    role?: 'instructor' | 'staff' | string
     profiles: { full_name: string; email: string; phone: string | null; role: string | null } | null
 }
 
-type RoleOption = 'therapist' | 'staff'
+type RoleOption = 'instructor' | 'staff'
 
 export default function MemberManagement() {
     const { profile, refreshProfile } = useAuth()
     const [members, setMembers] = useState<GuestRequest[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [processingId, setProcessingId] = useState<string | null>(null)
+    const [systemAdminName, setSystemAdminName] = useState<string>('')
 
     // 새 멤버 모달 상태
     const [showCreateModal, setShowCreateModal] = useState(false)
@@ -30,15 +31,26 @@ export default function MemberManagement() {
         email: '',
         password: '',
         name: '',
-        role: 'therapist' as RoleOption
+        role: 'instructor' as RoleOption
     })
 
+    // 인라인 편집 상태
+    const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
+    const [editForm, setEditForm] = useState({ name: '', phone: '' })
 
 
     const fetchMembers = useCallback(async () => {
         if (!profile?.system_id) return
         setIsLoading(true)
         try {
+            // systems 테이블에서 admin_name 조회
+            const { data: systemData } = await supabase
+                .from('systems')
+                .select('admin_name')
+                .eq('id', profile.system_id)
+                .single()
+            if (systemData?.admin_name) setSystemAdminName(systemData.admin_name)
+
             const { data, error } = await supabase
                 .from('system_members')
                 .select(`
@@ -75,6 +87,52 @@ export default function MemberManagement() {
             setIsLoading(false)
         }
     }, [profile?.system_id])
+
+    // 인라인 편집 시작
+    const startEditing = (member: GuestRequest) => {
+        setEditingMemberId(member.user_id)
+        setEditForm({
+            name: member.profiles?.full_name || '',
+            phone: member.profiles?.phone || ''
+        })
+    }
+
+    // 인라인 편집 저장
+    const saveEditing = async () => {
+        if (!editingMemberId) return
+        setProcessingId(editingMemberId)
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: editForm.name.trim(),
+                    phone: editForm.phone.trim() || null
+                })
+                .eq('id', editingMemberId)
+
+            if (error) throw error
+            setEditingMemberId(null)
+            fetchMembers()
+        } catch (err) {
+            console.error('프로필 수정 실패:', err)
+            alert('프로필 수정에 실패했습니다.')
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
+    const cancelEditing = () => {
+        setEditingMemberId(null)
+    }
+
+    const handleEditKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            saveEditing()
+        } else if (e.key === 'Escape') {
+            cancelEditing()
+        }
+    }
 
     useEffect(() => {
         fetchMembers()
@@ -142,7 +200,7 @@ export default function MemberManagement() {
             // 성공
             alert(`${newMemberForm.name} 멤버가 성공적으로 발급되었습니다.`)
             setShowCreateModal(false)
-            setNewMemberForm({ email: '', password: '', name: '', role: 'therapist' })
+            setNewMemberForm({ email: '', password: '', name: '', role: 'instructor' })
             fetchMembers()
 
         } catch (err: any) {
@@ -227,126 +285,189 @@ export default function MemberManagement() {
                                     </td>
                                 </tr>
                             ) : (
-                                members.map((member) => (
-                                    <tr key={member.id} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${member.role === 'owner' ? 'bg-red-100 text-red-600' : member.role === 'staff'
-                                                    ? 'bg-green-100 text-green-600'
-                                                    : 'bg-blue-100 text-blue-600'
-                                                    }`}>
-                                                    {member.role === 'owner' ? <ShieldAlert className="w-4 h-4" /> : member.role === 'staff' ? <Shield className="w-4 h-4" /> : <Stethoscope className="w-4 h-4" />}
+                                members.map((member) => {
+                                    const isEditing = editingMemberId === member.user_id
+                                    return (
+                                        <tr key={member.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${member.role === 'owner' ? 'bg-red-100 text-red-600' : member.role === 'staff'
+                                                        ? 'bg-green-100 text-green-600'
+                                                        : 'bg-blue-100 text-blue-600'
+                                                        }`}>
+                                                        {member.role === 'owner' ? <ShieldAlert className="w-4 h-4" /> : member.role === 'staff' ? <Shield className="w-4 h-4" /> : <Stethoscope className="w-4 h-4" />}
+                                                    </div>
+                                                    <div>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.name}
+                                                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                                                onKeyDown={handleEditKeyDown}
+                                                                className="px-2 py-1 border border-blue-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-28"
+                                                                autoFocus
+                                                                placeholder="이름"
+                                                            />
+                                                        ) : (
+                                                            <span className="font-bold text-gray-900 block group-hover:text-blue-700 transition-colors">
+                                                                {member.role === 'owner'
+                                                                    ? (systemAdminName || member.profiles?.full_name || '이름 없음')
+                                                                    : (member.profiles?.full_name || '이름 없음')}
+                                                            </span>
+                                                        )}
+                                                        {member.role === 'owner' ? (
+                                                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
+                                                                관리자
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${member.role === 'staff' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                                {member.role === 'staff' ? '스태프' : '선생님'}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span className="font-bold text-gray-900 block group-hover:text-blue-700 transition-colors">{member.profiles?.full_name || '이름 없음'}</span>
-                                                    {member.role === 'owner' ? (
-                                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
-                                                            관리자
-                                                        </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500 font-mono text-xs max-w-[200px] truncate whitespace-nowrap" title={member.profiles?.email || ''}>
+                                                {member.profiles?.email || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
+                                                {isEditing ? (
+                                                    <input
+                                                        type="tel"
+                                                        value={editForm.phone}
+                                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                                        onKeyDown={handleEditKeyDown}
+                                                        className="px-2 py-1 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-32"
+                                                        placeholder="010-0000-0000"
+                                                    />
+                                                ) : (
+                                                    member.profiles?.phone || <span className="text-gray-300">미입력</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {member.role !== 'owner' ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!confirm(`${member.profiles?.full_name}님의 역할을 '선생님'으로 변경하시겠습니까?`)) return
+                                                                setProcessingId(member.id)
+                                                                try {
+                                                                    const { error } = await supabase
+                                                                        .from('system_members')
+                                                                        .update({ role: 'instructor' })
+                                                                        .eq('id', member.id)
+
+                                                                    if (error) throw error
+                                                                    fetchMembers()
+                                                                } catch (e) {
+                                                                    console.error(e)
+                                                                    alert('역할 변경 실패')
+                                                                } finally {
+                                                                    setProcessingId(null)
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${member.role === 'instructor'
+                                                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20'
+                                                                : 'bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300'
+                                                                }`}
+                                                            title="선생님으로 변경"
+                                                        >
+                                                            <Stethoscope className="w-3.5 h-3.5" />
+                                                            선생님
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!confirm(`${member.profiles?.full_name}님의 역할을 '스태프'로 변경하시겠습니까?`)) return
+                                                                setProcessingId(member.id)
+                                                                try {
+                                                                    const { error } = await supabase
+                                                                        .from('system_members')
+                                                                        .update({ role: 'staff' })
+                                                                        .eq('id', member.id)
+
+                                                                    if (error) throw error
+                                                                    fetchMembers()
+                                                                } catch (e) {
+                                                                    console.error(e)
+                                                                    alert('역할 변경 실패')
+                                                                } finally {
+                                                                    setProcessingId(null)
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${member.role === 'staff'
+                                                                ? 'bg-green-600 text-white shadow-sm ring-2 ring-green-600/20'
+                                                                : 'bg-white border border-gray-200 text-gray-400 hover:text-green-600 hover:border-green-300'
+                                                                }`}
+                                                            title="스태프로 변경"
+                                                        >
+                                                            <Shield className="w-3.5 h-3.5" />
+                                                            스태프
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">센터장(직책 고정)</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button
+                                                                onClick={saveEditing}
+                                                                disabled={!!processingId}
+                                                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 hover:bg-blue-700"
+                                                            >
+                                                                {processingId === member.user_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                                저장
+                                                            </button>
+                                                            <button
+                                                                onClick={cancelEditing}
+                                                                className="px-3 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                                            >
+                                                                <X className="w-3.5 h-3.5" />
+                                                                취소
+                                                            </button>
+                                                        </>
                                                     ) : (
-                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${member.role === 'staff' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
-                                                            {member.role === 'staff' ? '스태프' : '치료사'}
-                                                        </span>
+                                                        <>
+                                                            {member.role !== 'owner' && (
+                                                                <button
+                                                                    onClick={() => startEditing(member)}
+                                                                    className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                                                >
+                                                                    <Pencil className="w-3.5 h-3.5" />
+                                                                    수정
+                                                                </button>
+                                                            )}
+                                                            {member.role !== 'owner' && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (!confirm(`정말 ${member.profiles?.full_name} 멤버를 추방하시겠습니까?\n이 작업은 즉시 반영되며, 해당 계정은 더 이상 이 시스템에 로그인할 수 없습니다.`)) return
+                                                                        setProcessingId(member.id)
+                                                                        try {
+                                                                            await supabase.from('system_members').delete().eq('id', member.id)
+                                                                            fetchMembers()
+                                                                        } catch (e) {
+                                                                            console.error(e)
+                                                                            alert('추방 실패')
+                                                                        } finally {
+                                                                            setProcessingId(null)
+                                                                        }
+                                                                    }}
+                                                                    disabled={!!processingId}
+                                                                    className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                                                                >
+                                                                    {processingId === member.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                                    추방
+                                                                </button>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500 font-mono text-xs max-w-[200px] truncate whitespace-nowrap" title={member.profiles?.email || ''}>
-                                            {member.profiles?.email || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
-                                            {member.profiles?.phone || <span className="text-gray-300">미입력</span>}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {member.role !== 'owner' ? (
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!confirm(`${member.profiles?.full_name}님의 역할을 '치료사'로 변경하시겠습니까?`)) return
-                                                            setProcessingId(member.id)
-                                                            try {
-                                                                const { error } = await supabase
-                                                                    .from('system_members')
-                                                                    .update({ role: 'therapist' })
-                                                                    .eq('id', member.id)
-
-                                                                if (error) throw error
-                                                                fetchMembers()
-                                                            } catch (e) {
-                                                                console.error(e)
-                                                                alert('역할 변경 실패')
-                                                            } finally {
-                                                                setProcessingId(null)
-                                                            }
-                                                        }}
-                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${member.role === 'therapist'
-                                                            ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20'
-                                                            : 'bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300'
-                                                            }`}
-                                                        title="치료사로 변경"
-                                                    >
-                                                        <Stethoscope className="w-3.5 h-3.5" />
-                                                        치료사
-                                                    </button>
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!confirm(`${member.profiles?.full_name}님의 역할을 '스태프'로 변경하시겠습니까?`)) return
-                                                            setProcessingId(member.id)
-                                                            try {
-                                                                const { error } = await supabase
-                                                                    .from('system_members')
-                                                                    .update({ role: 'staff' })
-                                                                    .eq('id', member.id)
-
-                                                                if (error) throw error
-                                                                fetchMembers()
-                                                            } catch (e) {
-                                                                console.error(e)
-                                                                alert('역할 변경 실패')
-                                                            } finally {
-                                                                setProcessingId(null)
-                                                            }
-                                                        }}
-                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${member.role === 'staff'
-                                                            ? 'bg-green-600 text-white shadow-sm ring-2 ring-green-600/20'
-                                                            : 'bg-white border border-gray-200 text-gray-400 hover:text-green-600 hover:border-green-300'
-                                                            }`}
-                                                        title="스태프로 변경"
-                                                    >
-                                                        <Shield className="w-3.5 h-3.5" />
-                                                        스태프
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">원장(직책 고정)</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                                            {member.role !== 'owner' && (
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!confirm(`정말 ${member.profiles?.full_name} 멤버를 추방하시겠습니까?\n이 작업은 즉시 반영되며, 해당 계정은 더 이상 이 시스템에 로그인할 수 없습니다.`)) return
-                                                        setProcessingId(member.id)
-                                                        try {
-                                                            await supabase.from('system_members').delete().eq('id', member.id)
-                                                            fetchMembers()
-                                                        } catch (e) {
-                                                            console.error(e)
-                                                            alert('추방 실패')
-                                                        } finally {
-                                                            setProcessingId(null)
-                                                        }
-                                                    }}
-                                                    disabled={!!processingId}
-                                                    className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
-                                                >
-                                                    {processingId === member.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                                    추방
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             )}
                         </tbody>
                     </table>
@@ -415,14 +536,14 @@ export default function MemberManagement() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setNewMemberForm({ ...newMemberForm, role: 'therapist' })}
-                                            className={`py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${newMemberForm.role === 'therapist'
+                                            onClick={() => setNewMemberForm({ ...newMemberForm, role: 'instructor' })}
+                                            className={`py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${newMemberForm.role === 'instructor'
                                                 ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-700 font-bold'
                                                 : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                                                 }`}
                                         >
-                                            <Stethoscope className={`w-5 h-5 ${newMemberForm.role === 'therapist' ? 'text-blue-600' : 'text-gray-400'}`} />
-                                            <span className="text-sm">치료사</span>
+                                            <Stethoscope className={`w-5 h-5 ${newMemberForm.role === 'instructor' ? 'text-blue-600' : 'text-gray-400'}`} />
+                                            <span className="text-sm">선생님</span>
                                         </button>
                                         <button
                                             type="button"

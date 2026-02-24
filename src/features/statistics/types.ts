@@ -1,5 +1,5 @@
-// 통계 페이지 타입 정의
-// 기간별 통계 데이터 구조, 치료사 실적, 예약 시간 길이별 분포 타입
+﻿// 통계 페이지 타입 정의
+// 기간별 통계 데이터 구조, 선생님 실적, 예약 시간 길이별 분포 타입
 
 export type StatsSummary = {
     total_reservations: number
@@ -7,7 +7,7 @@ export type StatsSummary = {
     cancelled_reservations: number
     noshow_reservations: number
     pending_reservations: number
-    new_patients: number
+    new_clients: number
     noshow_rate: number
     total_revenue: number // 전체 매출
 }
@@ -17,25 +17,25 @@ export type TimeDistribution = {
     count: number
 }
 
-export type TherapistPerformance = {
-    therapist_id: string
-    therapist_name: string
+export type InstructorPerformance = {
+    instructor_id: string
+    instructor_name: string
     total_appointments: number
     completed_appointments: number
     cancelled_appointments: number
     noshow_appointments: number
-    new_patients: number
-    returning_patients: number
+    new_clients: number
+    returning_clients: number
     avg_duration_min: number
     revenue: number // 총 매출
     incentive: number // 예상 인센티브
     incentive_rate: number // 인센티브 비율
 }
 
-// 치료사별 치료 시간 구간별 실적
-export type TherapistDurationBreakdown = {
-    therapist_id: string
-    therapist_name: string
+// 선생님별 수업 시간 구간별 실적
+export type InstructorDurationBreakdown = {
+    instructor_id: string
+    instructor_name: string
     durations: Record<number, number>  // { 30: 5, 60: 3, ... } 구간별 완료 건수
     total: number
 }
@@ -60,8 +60,8 @@ export type DurationBucket = {
 export type StatsData = {
     summary: StatsSummary
     time_distribution: TimeDistribution[]
-    therapist_performance: TherapistPerformance[]
-    therapist_duration_breakdown: TherapistDurationBreakdown[]
+    instructor_performance: InstructorPerformance[]
+    instructor_duration_breakdown: InstructorDurationBreakdown[]
     daily_trend: DailyTrend[]
     duration_distribution: DurationBucket[]
 }

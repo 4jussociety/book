@@ -1,4 +1,4 @@
-// useRealtimeAppointments: appointments 테이블 변경 실시간 구독 (전역 1회)
+﻿// useRealtimeAppointments: appointments 테이블 변경 실시간 구독 (전역 1회)
 // App 또는 최상위 컴포넌트에서 호출하여 모든 클라이언트에 변경사항 즉시 반영
 
 import { useEffect, useRef } from 'react'

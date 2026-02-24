@@ -1,36 +1,36 @@
-// PatientForm: 환자 등록/수정 폼 컴포넌트
-// 환자번호 수동입력 지원, 미입력 시 자동 넘버링
+﻿// ClientForm: 고객 등록/수정 폼 컴포넌트
+// 고객번호 수동입력 지원, 미입력 시 자동 넘버링
 
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createPatient, updatePatient } from './api'
+import { createClient, updateClient } from './api'
 import { Loader2 } from 'lucide-react'
-import type { Patient } from '@/types/db'
+import type { Client } from '@/types/db'
 import { useAuth } from '@/features/auth/AuthContext'
 import clsx from 'clsx'
 
-const patientSchema = z.object({
+const clientSchema = z.object({
     name: z.string().min(1, '이름을 입력해주세요.'),
-    patient_no: z.string().optional(),
+    client_no: z.string().optional(),
     gender: z.enum(['M', 'F']),
     birth_date: z.string().optional(),
     phone: z.string().optional(),
 
 })
 
-type PatientFormInputs = z.infer<typeof patientSchema>
+type ClientFormInputs = z.infer<typeof clientSchema>
 
 type Props = {
-    initialData: Patient | null
+    initialData: Client | null
     defaultName?: string
-    onSuccess: (patient: Patient) => void
+    onSuccess: (Client: Client) => void
     onCancel: () => void
 }
 
-export default function PatientForm({ initialData, defaultName, onSuccess, onCancel }: Props) {
+export default function ClientForm({ initialData, defaultName, onSuccess, onCancel }: Props) {
     const queryClient = useQueryClient()
     const { profile } = useAuth()
 
@@ -41,12 +41,12 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
         watch,
         setValue,
         formState: { errors, isSubmitting },
-    } = useForm<PatientFormInputs>({
-        resolver: zodResolver(patientSchema),
+    } = useForm<ClientFormInputs>({
+        resolver: zodResolver(clientSchema),
         defaultValues: {
             gender: 'M',
             name: defaultName || '',
-            patient_no: '',
+            client_no: '',
             birth_date: '',
             phone: '',
 
@@ -61,7 +61,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
             const normalizedGender = (initialData.gender === 'MALE' || initialData.gender === 'M') ? 'M' as const : 'F' as const
             reset({
                 name: initialData.name,
-                patient_no: initialData.patient_no?.toString() || '',
+                client_no: initialData.client_no?.toString() || '',
                 gender: normalizedGender,
                 birth_date: initialData.birth_date ? initialData.birth_date.substring(0, 4) : '',
                 phone: initialData.phone || '',
@@ -70,7 +70,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
         } else {
             reset({
                 name: defaultName || '',
-                patient_no: '',
+                client_no: '',
                 gender: 'M',
                 birth_date: '',
                 phone: '',
@@ -80,7 +80,7 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
     }, [initialData, reset, defaultName])
 
     const mutation = useMutation({
-        mutationFn: async (data: PatientFormInputs) => {
+        mutationFn: async (data: ClientFormInputs) => {
             // 생년(4자리)을 DB DATE 타입에 맞게 변환 (YYYY-01-01)
             let birthDateValue: string | null = null
             if (data.birth_date && data.birth_date.length === 4) {
@@ -91,10 +91,10 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
             // system_id 주입 (RLS 정책 준수)
             let isManualNo = false
             if (!initialData) {
-                if (data.patient_no) isManualNo = true
+                if (data.client_no) isManualNo = true
             } else {
-                if (data.patient_no !== initialData.patient_no?.toString()) {
-                    isManualNo = !!data.patient_no
+                if (data.client_no !== initialData.client_no?.toString()) {
+                    isManualNo = !!data.client_no
                 } else {
                     isManualNo = !!initialData.is_manual_no
                 }
@@ -104,21 +104,21 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
                 ...data,
                 birth_date: birthDateValue,
                 phone: data.phone || null,
-                patient_no: data.patient_no ? parseInt(data.patient_no) : undefined,
+                client_no: data.client_no ? parseInt(data.client_no) : undefined,
                 is_manual_no: isManualNo,
                 system_id: profile?.system_id,
 
             }
 
             if (initialData) {
-                return await updatePatient(initialData.id, payload)
+                return await updateClient(initialData.id, payload)
             } else {
-                return await createPatient(payload)
+                return await createClient(payload)
             }
         },
         onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['patients'] })
-            onSuccess(data as unknown as Patient)
+            queryClient.invalidateQueries({ queryKey: ['clients'] })
+            onSuccess(data as unknown as Client)
             if (!initialData) reset()
         },
         onError: (error) => {
@@ -127,13 +127,13 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
         }
     })
 
-    const onSubmit = (data: PatientFormInputs) => {
+    const onSubmit = (data: ClientFormInputs) => {
         mutation.mutate(data)
     }
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Row 1: 이름 + 환자번호 */}
+            {/* Row 1: 이름 + 고객번호 */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-1">
                     <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">이름</label>
@@ -146,13 +146,13 @@ export default function PatientForm({ initialData, defaultName, onSuccess, onCan
                     {errors.name && <p className="text-red-500 text-[10px] ml-1 mt-0.5">{errors.name.message}</p>}
                 </div>
                 <div className="col-span-1">
-                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">환자번호</label>
+                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">고객번호</label>
                     <input
                         type="text"
-                        {...register('patient_no')}
+                        {...register('client_no')}
                         onChange={(e) => {
                             const val = e.target.value.replace(/[^0-9]/g, '')
-                            setValue('patient_no', val)
+                            setValue('client_no', val)
                         }}
                         placeholder="미입력시 자동부여"
                         className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-sm"

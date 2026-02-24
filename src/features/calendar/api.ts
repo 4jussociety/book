@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase'
-import type { Appointment, Patient, Profile } from '@/types/db'
+﻿import { supabase } from '@/lib/supabase'
+import type { Appointment, Client, Profile } from '@/types/db'
 import { endOfDay, startOfWeek, addDays, formatISO, startOfMonth, endOfMonth, endOfWeek } from 'date-fns'
 
 export async function getAppointments(date: Date) {
@@ -12,9 +12,9 @@ export async function getAppointments(date: Date) {
         .from('appointments')
         .select(`
             *,
-            patient:patients!patient_id(*),
-            therapist:profiles!therapist_id(*),
-            membership:patient_memberships!membership_id(id, name, total_sessions, used_sessions, status)
+            client:clients!client_id(*),
+            instructor:profiles!instructor_id(*),
+            membership:client_memberships!membership_id(id, name, total_sessions, used_sessions, status)
         `)
         .gte('start_time', formatISO(weekStart))
         .lte('start_time', formatISO(weekEnd))
@@ -23,15 +23,15 @@ export async function getAppointments(date: Date) {
     return data as Appointment[]
 }
 
-export async function getAppointmentsByPatient(patientId: string) {
+export async function getAppointmentsByClient(clientId: string) {
     const { data, error } = await supabase
         .from('appointments')
         .select(`
             *,
-            patient:patients!patient_id(*),
-            therapist:profiles!therapist_id(*)
+            client:clients!client_id(*),
+            instructor:profiles!instructor_id(*)
         `)
-        .eq('patient_id', patientId)
+        .eq('client_id', clientId)
         .order('start_time', { ascending: false })
 
     if (error) throw error
@@ -51,7 +51,7 @@ export async function getMonthlyAppointments(date: Date) {
             start_time,
             event_type,
             status,
-            therapist_id
+            instructor_id
         `)
         .gte('start_time', formatISO(start))
         .lte('start_time', formatISO(end))
@@ -66,8 +66,8 @@ export async function createAppointment(appointment: Partial<Appointment>) {
         .insert(appointment)
         .select(`
             *,
-            patient:patients!patient_id(*),
-            therapist:profiles!therapist_id(*)
+            client:clients!client_id(*),
+            instructor:profiles!instructor_id(*)
         `)
         .single()
 
@@ -83,8 +83,8 @@ export async function updateAppointment(id: string, updates: Partial<Appointment
         .eq('id', id)
         .select(`
             *,
-            patient:patients!patient_id(*),
-            therapist:profiles!therapist_id(*)
+            client:clients!client_id(*),
+            instructor:profiles!instructor_id(*)
         `)
         .single()
 
@@ -112,38 +112,38 @@ export async function deleteAppointment(id: string) {
     if (error) throw error
 }
 
-export async function getPatients(query?: string) {
-    let builder = supabase.from('patients').select('*')
+export async function getClients(query?: string) {
+    let builder = supabase.from('clients').select('*')
     if (query) {
         builder = builder.or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
     }
     const { data, error } = await builder.order('name')
     if (error) throw error
-    return data as Patient[]
+    return data as Client[]
 }
 
 export async function getProfiles(systemId?: string) {
     if (!systemId) return []
 
-    // 1. System Members에서 therapist 권한을 가진 사용자의 ID만 조회 (owner 제외)
+    // 1. System Members에서 instructor 권한을 가진 사용자의 ID만 조회 (owner 제외)
     const { data: members, error: membersError } = await supabase
         .from('system_members')
         .select('user_id')
         .eq('system_id', systemId)
-        .eq('role', 'therapist')
+        .eq('role', 'instructor')
         .eq('status', 'approved')
 
     if (membersError) throw membersError
 
-    const therapistIds = Array.from(new Set(members.map(m => m.user_id)))
+    const instructorIds = Array.from(new Set(members.map(m => m.user_id)))
 
-    if (therapistIds.length === 0) return []
+    if (instructorIds.length === 0) return []
 
     // 2. ID 목록에 해당하는 프로필 조회
     const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .in('id', therapistIds)
+        .in('id', instructorIds)
         .order('full_name')
 
     if (profileError) throw profileError
@@ -163,14 +163,14 @@ export async function updateProfile(id: string, updates: Partial<Profile>) {
     return data as Profile
 }
 
-export async function updatePatient(id: string, updates: Partial<Patient>) {
+export async function updateClient(id: string, updates: Partial<Client>) {
     const { data, error } = await supabase
-        .from('patients')
+        .from('clients')
         .update(updates)
         .eq('id', id)
         .select()
         .single()
 
     if (error) throw error
-    return data as Patient
+    return data as Client
 }

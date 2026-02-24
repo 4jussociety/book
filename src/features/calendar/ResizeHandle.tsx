@@ -69,7 +69,7 @@ export function ResizeHandle({ position, onResizeStart, onResize, onResizeEnd }:
         <div
             onPointerDown={handlePointerDown}
             className={clsx(
-                "absolute inset-x-0 h-2 z-[60] cursor-row-resize transition-all group/resize flex items-center justify-center",
+                "absolute inset-x-0 h-2 z-[60] cursor-row-resize transition-all group/resize hidden md:flex items-center justify-center",
                 position === 'top' ? "-top-1" : "-bottom-1",
                 isDragging && "bg-blue-500/20"
             )}

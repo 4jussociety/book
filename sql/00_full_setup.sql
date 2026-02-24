@@ -1,6 +1,6 @@
 -- ============================================================
--- [통합 데이터베이스 설정 스크립트] v2.0
--- 4개 SQL 파일을 하나로 병합: 99_complete_setup + migrate_all + migrate_memberships + migrate_rls_owner_only
+-- [통합 데이터베이스 설정 스크립트] v3.0
+-- 모든 SQL 파일을 하나로 병합: 스키마 + RLS + 함수 + 트리거 + 마이그레이션
 -- Supabase SQL Editor에서 전체 복사 후 한 번 실행하세요.
 -- ============================================================
 
@@ -36,12 +36,12 @@ CREATE TABLE IF NOT EXISTS systems (
     organization_name TEXT,
     contact_number TEXT,
     admin_name TEXT,
-    last_patient_no INT DEFAULT 0
+    last_client_no INT DEFAULT 0
 );
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS organization_name TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS contact_number TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS admin_name TEXT;
-ALTER TABLE systems ADD COLUMN IF NOT EXISTS last_patient_no INT DEFAULT 0;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS last_client_no INT DEFAULT 0;
 
 -- 3. Profiles Table (순수 유저 정보)
 CREATE TABLE IF NOT EXISTS profiles (
@@ -62,11 +62,11 @@ CREATE TABLE IF NOT EXISTS system_members (
     system_id UUID REFERENCES systems(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     status access_status DEFAULT 'approved',
-    role TEXT CHECK (role IN ('owner', 'therapist', 'staff')),
+    role TEXT CHECK (role IN ('owner', 'instructor', 'staff')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE(system_id, user_id)
 );
-ALTER TABLE system_members ADD COLUMN IF NOT EXISTS role TEXT CHECK (role IN ('owner', 'therapist', 'staff'));
+ALTER TABLE system_members ADD COLUMN IF NOT EXISTS role TEXT CHECK (role IN ('owner', 'instructor', 'staff'));
 
 DO $$
 BEGIN
@@ -75,10 +75,10 @@ BEGIN
     END IF;
 END $$;
 
--- 5. Patients Table
-CREATE TABLE IF NOT EXISTS patients (
+-- 5. Clients Table
+CREATE TABLE IF NOT EXISTS clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_no INT,
+    client_no INT,
     is_manual_no BOOLEAN DEFAULT FALSE,
     name TEXT NOT NULL,
     phone TEXT,
@@ -92,15 +92,15 @@ CREATE TABLE IF NOT EXISTS patients (
     system_id UUID REFERENCES systems(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE(system_id, patient_no)
+    UNIQUE(system_id, client_no)
 );
 
 -- 6. Appointments Table
 CREATE TABLE IF NOT EXISTS appointments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type event_type NOT NULL DEFAULT 'APPOINTMENT',
-    therapist_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    patient_id UUID REFERENCES patients(id) ON DELETE SET NULL,
+    instructor_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     status appointment_status NOT NULL DEFAULT 'PENDING',
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- 7. Pricing Settings Table (치료 시간별 단가 설정)
+-- 7. Pricing Settings Table (수업 시간별 단가 설정)
 CREATE TABLE IF NOT EXISTS pricing_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     system_id UUID NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
@@ -138,11 +138,11 @@ CREATE TABLE IF NOT EXISTS message_templates (
     UNIQUE(system_id, template_name)
 );
 
--- 9. Patient Memberships Table (회원권/다회권 관리) - from migrate_memberships
-CREATE TABLE IF NOT EXISTS patient_memberships (
+-- 9. Client Memberships Table (회원권/다회권 관리)
+CREATE TABLE IF NOT EXISTS client_memberships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     system_id UUID REFERENCES systems(id) ON DELETE CASCADE,
-    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     
     name TEXT NOT NULL,                 -- 회원권 이름 (예: 10회권 패키지)
     total_sessions INT NOT NULL,        -- 전체 부여된 횟수 (예: 10)
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS patient_memberships (
 );
 
 -- 10. Appointments 테이블에 회원권 연동 컬럼 추가
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS membership_id UUID REFERENCES patient_memberships(id) ON DELETE SET NULL;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS membership_id UUID REFERENCES client_memberships(id) ON DELETE SET NULL;
 
 -- Realtime 설정
 ALTER TABLE appointments REPLICA IDENTITY FULL;
@@ -182,11 +182,11 @@ END $$;
 ALTER TABLE systems ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE patient_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_memberships ENABLE ROW LEVEL SECURITY;
 
 -- Helper Functions
 CREATE OR REPLACE FUNCTION is_system_owner(sys_id UUID) RETURNS BOOLEAN AS $$
@@ -231,6 +231,8 @@ DROP POLICY IF EXISTS "Systems are viewable by everyone" ON systems;
 CREATE POLICY "Systems are viewable by everyone" ON systems FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Owners can update systems" ON systems;
 CREATE POLICY "Owners can update systems" ON systems FOR UPDATE USING (auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Owners can delete systems" ON systems;
+CREATE POLICY "Owners can delete systems" ON systems FOR DELETE USING (auth.uid() = owner_id);
 DROP POLICY IF EXISTS "Authenticated users can create systems" ON systems;
 CREATE POLICY "Authenticated users can create systems" ON systems FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
@@ -246,7 +248,7 @@ CREATE POLICY "Owners can update member profiles" ON profiles FOR UPDATE USING (
     id IN (SELECT user_id FROM system_members WHERE system_id IN (SELECT id FROM systems WHERE owner_id = auth.uid()))
 );
 
--- Policies: System Members (강화됨 - from migrate_rls_owner_only)
+-- Policies: System Members (강화됨)
 DROP POLICY IF EXISTS "Owner manage system requests" ON system_members;
 DROP POLICY IF EXISTS "Guest manage own access" ON system_members;
 DROP POLICY IF EXISTS "Members view system guests" ON system_members;
@@ -279,9 +281,9 @@ CREATE POLICY "Members can update own record"
   ON system_members FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Policies: Patients & Appointments
-DROP POLICY IF EXISTS "System access for patients" ON patients;
-CREATE POLICY "System access for patients" ON patients FOR ALL USING ( 
+-- Policies: Clients & Appointments
+DROP POLICY IF EXISTS "System access for clients" ON clients;
+CREATE POLICY "System access for clients" ON clients FOR ALL USING ( 
     is_system_owner(system_id) OR is_system_member(system_id)
 );
 
@@ -291,14 +293,14 @@ CREATE POLICY "System access for appointments" ON appointments FOR ALL USING (
     is_system_owner(system_id) OR is_system_member(system_id)
 );
 
--- Policies: Pricing Settings (관리자: 전체, 치료사: 조회, 스태프: 접근 불가)
+-- Policies: Pricing Settings (관리자: 전체, 선생님: 조회, 스태프: 접근 불가)
 DROP POLICY IF EXISTS "pricing_owner_all" ON pricing_settings;
 CREATE POLICY "pricing_owner_all" ON pricing_settings FOR ALL
   USING (has_role(system_id, ARRAY['owner']));
 
-DROP POLICY IF EXISTS "pricing_therapist_read" ON pricing_settings;
-CREATE POLICY "pricing_therapist_read" ON pricing_settings FOR SELECT
-  USING (has_role(system_id, ARRAY['therapist']));
+DROP POLICY IF EXISTS "pricing_instructor_read" ON pricing_settings;
+CREATE POLICY "pricing_instructor_read" ON pricing_settings FOR SELECT
+  USING (has_role(system_id, ARRAY['instructor']));
 
 -- Policies: Message Templates (모든 승인된 멤버: 전체 접근)
 DROP POLICY IF EXISTS "template_owner_all" ON message_templates;
@@ -309,22 +311,22 @@ DROP POLICY IF EXISTS "template_member_read" ON message_templates;
 CREATE POLICY "template_member_read" ON message_templates FOR SELECT
   USING (is_system_member(system_id));
 
--- Policies: Patient Memberships (from migrate_memberships)
-DROP POLICY IF EXISTS "memberships_view" ON patient_memberships;
-CREATE POLICY "memberships_view" ON patient_memberships FOR SELECT 
+-- Policies: Client Memberships
+DROP POLICY IF EXISTS "memberships_view" ON client_memberships;
+CREATE POLICY "memberships_view" ON client_memberships FOR SELECT 
   USING (is_system_member(system_id));
 
-DROP POLICY IF EXISTS "memberships_insert" ON patient_memberships;
-CREATE POLICY "memberships_insert" ON patient_memberships FOR INSERT 
-  WITH CHECK (has_role(system_id, ARRAY['owner', 'staff', 'therapist']));
+DROP POLICY IF EXISTS "memberships_insert" ON client_memberships;
+CREATE POLICY "memberships_insert" ON client_memberships FOR INSERT 
+  WITH CHECK (has_role(system_id, ARRAY['owner', 'staff', 'instructor']));
 
-DROP POLICY IF EXISTS "memberships_update" ON patient_memberships;
-CREATE POLICY "memberships_update" ON patient_memberships FOR UPDATE 
-  USING (has_role(system_id, ARRAY['owner', 'staff', 'therapist']));
+DROP POLICY IF EXISTS "memberships_update" ON client_memberships;
+CREATE POLICY "memberships_update" ON client_memberships FOR UPDATE 
+  USING (has_role(system_id, ARRAY['owner', 'staff', 'instructor']));
 
-DROP POLICY IF EXISTS "memberships_delete" ON patient_memberships;
-CREATE POLICY "memberships_delete" ON patient_memberships FOR DELETE 
-  USING (has_role(system_id, ARRAY['owner', 'staff', 'therapist']));
+DROP POLICY IF EXISTS "memberships_delete" ON client_memberships;
+CREATE POLICY "memberships_delete" ON client_memberships FOR DELETE 
+  USING (has_role(system_id, ARRAY['owner', 'staff', 'instructor']));
 
 --------------------------------------------------------------------------------
 -- [Part 3] 핵심 함수 및 트리거 (Functions & Maintenance)
@@ -385,44 +387,44 @@ BEFORE UPDATE ON appointments
 FOR EACH ROW
 EXECUTE FUNCTION update_version_column();
 
--- 3.3 Patient Number Logic
-CREATE OR REPLACE FUNCTION assign_patient_no()
+-- 3.3 Client Number Logic
+CREATE OR REPLACE FUNCTION assign_client_no()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.patient_no IS NULL AND NEW.system_id IS NOT NULL THEN
+    IF NEW.client_no IS NULL AND NEW.system_id IS NOT NULL THEN
         UPDATE systems 
-        SET last_patient_no = last_patient_no + 1
+        SET last_client_no = last_client_no + 1
         WHERE id = NEW.system_id
-        RETURNING last_patient_no INTO NEW.patient_no;
+        RETURNING last_client_no INTO NEW.client_no;
     END IF;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS tr_assign_patient_no ON patients;
-CREATE TRIGGER tr_assign_patient_no
-BEFORE INSERT ON patients
+DROP TRIGGER IF EXISTS tr_assign_client_no ON clients;
+CREATE TRIGGER tr_assign_client_no
+BEFORE INSERT ON clients
 FOR EACH ROW
-EXECUTE FUNCTION assign_patient_no();
+EXECUTE FUNCTION assign_client_no();
 
--- 3.3.1 Reset Patient Counter on Empty
-CREATE OR REPLACE FUNCTION reset_patient_counter_if_empty()
+-- 3.3.1 Reset Client Counter on Empty
+CREATE OR REPLACE FUNCTION reset_client_counter_if_empty()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM patients WHERE system_id = OLD.system_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM clients WHERE system_id = OLD.system_id) THEN
         UPDATE systems 
-        SET last_patient_no = 0 
+        SET last_client_no = 0 
         WHERE id = OLD.system_id;
     END IF;
     RETURN OLD;
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS tr_reset_patient_counter ON patients;
-CREATE TRIGGER tr_reset_patient_counter
-AFTER DELETE ON patients
+DROP TRIGGER IF EXISTS tr_reset_client_counter ON clients;
+CREATE TRIGGER tr_reset_client_counter
+AFTER DELETE ON clients
 FOR EACH ROW
-EXECUTE FUNCTION reset_patient_counter_if_empty();
+EXECUTE FUNCTION reset_client_counter_if_empty();
 
 -- 3.4 updated_at 자동 갱신 (pricing_settings, message_templates)
 CREATE OR REPLACE FUNCTION update_modified_column()
@@ -446,23 +448,23 @@ FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 --------------------------------------------------------------------------------
 -- [Part 4] 예약 방문 횟수 자동 계산
 --------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION sync_visit_counts(p_patient_id UUID) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION sync_visit_counts(p_client_id UUID) RETURNS VOID AS $$
 BEGIN
     WITH valid_seq AS (
         SELECT id, 
                ROW_NUMBER() OVER (
-                   PARTITION BY patient_id 
+                   PARTITION BY client_id 
                    ORDER BY start_time, created_at
                ) as new_seq
         FROM appointments
-        WHERE patient_id = p_patient_id
+        WHERE client_id = p_client_id
           AND event_type = 'APPOINTMENT'
           AND status NOT IN ('CANCELLED', 'NOSHOW')
     ),
     invalid_seq AS (
         SELECT id, NULL::int as new_seq
         FROM appointments
-        WHERE patient_id = p_patient_id
+        WHERE client_id = p_client_id
           AND event_type = 'APPOINTMENT'
           AND status IN ('CANCELLED', 'NOSHOW')
     ),
@@ -482,17 +484,17 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION trigger_sync_visit_counts() RETURNS TRIGGER AS $$
 BEGIN
     IF (TG_OP = 'DELETE') THEN
-        PERFORM sync_visit_counts(OLD.patient_id);
+        PERFORM sync_visit_counts(OLD.client_id);
         RETURN OLD;
     ELSIF (TG_OP = 'INSERT') THEN
-        PERFORM sync_visit_counts(NEW.patient_id);
+        PERFORM sync_visit_counts(NEW.client_id);
         RETURN NEW;
     ELSIF (TG_OP = 'UPDATE') THEN
-        IF (OLD.patient_id IS DISTINCT FROM NEW.patient_id) THEN
-            PERFORM sync_visit_counts(OLD.patient_id);
-            PERFORM sync_visit_counts(NEW.patient_id);
+        IF (OLD.client_id IS DISTINCT FROM NEW.client_id) THEN
+            PERFORM sync_visit_counts(OLD.client_id);
+            PERFORM sync_visit_counts(NEW.client_id);
         ELSIF (OLD.status IS DISTINCT FROM NEW.status) OR (OLD.start_time IS DISTINCT FROM NEW.start_time) THEN
-             PERFORM sync_visit_counts(NEW.patient_id);
+             PERFORM sync_visit_counts(NEW.client_id);
         END IF;
         RETURN NEW;
     END IF;
@@ -502,37 +504,37 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS tr_sync_visit_counts ON appointments;
 CREATE TRIGGER tr_sync_visit_counts
-AFTER INSERT OR DELETE OR UPDATE OF status, start_time, patient_id ON appointments
+AFTER INSERT OR DELETE OR UPDATE OF status, start_time, client_id ON appointments
 FOR EACH ROW
 EXECUTE FUNCTION trigger_sync_visit_counts();
 
 --------------------------------------------------------------------------------
--- [Part 5] 환자 통계(총 방문, 최근 방문) 자동 동기화 - KST 보정 포함 (from migrate_all)
+-- [Part 5] 고객 통계(총 방문, 최근 방문) 자동 동기화 - KST 보정 포함
 --------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION update_patient_stats() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_client_stats() RETURNS TRIGGER AS $$
 DECLARE
-    target_patient_id UUID;
+    target_client_id UUID;
 BEGIN
     IF (TG_OP = 'DELETE') THEN
-        target_patient_id := OLD.patient_id;
+        target_client_id := OLD.client_id;
     ELSE
-        target_patient_id := NEW.patient_id;
+        target_client_id := NEW.client_id;
     END IF;
 
-    IF target_patient_id IS NOT NULL THEN
-        UPDATE patients
+    IF target_client_id IS NOT NULL THEN
+        UPDATE clients
         SET 
             visit_count = (
                 SELECT COUNT(*) 
                 FROM appointments 
-                WHERE patient_id = target_patient_id 
+                WHERE client_id = target_client_id 
                 AND event_type = 'APPOINTMENT'
                 AND status NOT IN ('CANCELLED', 'NOSHOW')
             ),
             last_visit = (
                 SELECT MAX(start_time AT TIME ZONE 'Asia/Seoul')::DATE
                 FROM appointments
-                WHERE patient_id = target_patient_id
+                WHERE client_id = target_client_id
                 AND event_type = 'APPOINTMENT'
                 AND status NOT IN ('CANCELLED', 'NOSHOW')
                 AND start_time <= NOW()
@@ -540,32 +542,31 @@ BEGIN
             first_visit_date = (
                 SELECT MIN(start_time AT TIME ZONE 'Asia/Seoul')::DATE
                 FROM appointments
-                WHERE patient_id = target_patient_id
+                WHERE client_id = target_client_id
                 AND event_type = 'APPOINTMENT'
                 AND status NOT IN ('CANCELLED', 'NOSHOW')
             )
-        WHERE id = target_patient_id;
+        WHERE id = target_client_id;
     END IF;
 
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS tr_update_patient_stats ON appointments;
-CREATE TRIGGER tr_update_patient_stats
+DROP TRIGGER IF EXISTS tr_update_client_stats ON appointments;
+CREATE TRIGGER tr_update_client_stats
 AFTER INSERT OR UPDATE OR DELETE ON appointments
 FOR EACH ROW
-EXECUTE FUNCTION update_patient_stats();
+EXECUTE FUNCTION update_client_stats();
 
 --------------------------------------------------------------------------------
--- [Part 6] 회원권 사용량 자동 추적 트리거 (from migrate_memberships)
+-- [Part 6] 회원권 사용량 자동 추적 트리거
 --------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION update_membership_usage() RETURNS TRIGGER AS $$
 BEGIN
-    -- 1. 이전 상태 복구 (OLD가 COMPLETED였고 membership_id가 있었다면)
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
         IF OLD.status = 'COMPLETED' AND OLD.membership_id IS NOT NULL THEN
-            UPDATE patient_memberships
+            UPDATE client_memberships
             SET used_sessions = GREATEST(used_sessions - 1, 0),
                 status = CASE WHEN GREATEST(used_sessions - 1, 0) < total_sessions THEN 'ACTIVE' ELSE status END,
                 updated_at = now()
@@ -573,10 +574,9 @@ BEGIN
         END IF;
     END IF;
 
-    -- 2. 새로운 상태 적용 (NEW가 COMPLETED이고 membership_id가 있다면)
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
         IF NEW.status = 'COMPLETED' AND NEW.membership_id IS NOT NULL THEN
-            UPDATE patient_memberships
+            UPDATE client_memberships
             SET used_sessions = used_sessions + 1,
                 status = CASE WHEN used_sessions + 1 >= total_sessions THEN 'EXHAUSTED' ELSE status END,
                 updated_at = now()
@@ -629,7 +629,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'systems' AND column_name = 'message_template') THEN
         INSERT INTO message_templates (system_id, template_name, template_body, is_default)
         SELECT id, '기본 템플릿',
-               COALESCE(message_template, '[예약 안내] {환자}님
+               COALESCE(message_template, '[예약 안내] {고객}님
 일시: {일시}
 장소: {장소}
 담당: {담당자} 선생님'),
@@ -640,13 +640,13 @@ BEGIN
     END IF;
 END $$;
 
--- 전체 방문 데이터 KST 기준으로 일괄 보정 (from migrate_all)
-UPDATE patients p
+-- 전체 방문 데이터 KST 기준으로 일괄 보정
+UPDATE clients p
 SET 
   last_visit = (
       SELECT MAX(start_time AT TIME ZONE 'Asia/Seoul')::DATE
       FROM appointments a
-      WHERE a.patient_id = p.id
+      WHERE a.client_id = p.id
       AND event_type = 'APPOINTMENT'
       AND status NOT IN ('CANCELLED', 'NOSHOW')
       AND start_time <= NOW()
@@ -654,7 +654,7 @@ SET
   first_visit_date = (
       SELECT MIN(start_time AT TIME ZONE 'Asia/Seoul')::DATE
       FROM appointments a
-      WHERE a.patient_id = p.id
+      WHERE a.client_id = p.id
       AND event_type = 'APPOINTMENT'
       AND status NOT IN ('CANCELLED', 'NOSHOW')
   );

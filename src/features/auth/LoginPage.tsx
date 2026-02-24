@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 // 최소 요구사항만 갖춘 로그인 스키마
 const loginSchema = z.object({
-    id: z.string().min(1, '이메일을 입력해주세요.'),
+    id: z.string().min(1, '아이디 또는 이메일을 입력해주세요.'),
     password: z.string().min(1, '비밀번호를 입력해주세요.'),
 })
 
@@ -46,13 +46,12 @@ export default function LoginPage() {
         setError(null)
 
         // 이메일 조합 로직
-        let emailToLogin = data.id
+        let emailToLogin = data.id.trim()
 
         if (activeTab === 'admin') {
-            // 관리자 탭: @가 포함되어 있으면 그대로 사용, 없으면 @thept.co.kr 추가
-            if (!data.id.includes('@')) {
-                emailToLogin = `${data.id}@thept.co.kr`
-            }
+            // 관리자 탭: 아이디만 입력하든 전체 이메일을 입력하든 @ 앞부분만 추출
+            const adminId = emailToLogin.split('@')[0]
+            emailToLogin = `${adminId}@thept.co.kr`
         }
         // 직원(멤버) 탭: 입력값 그대로 사용 (실제 이메일)
 
@@ -81,7 +80,7 @@ export default function LoginPage() {
             <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100">
                 <div className="text-center mb-10">
                     <h1 className="text-5xl font-black text-black font-roboto italic tracking-tighter leading-none [-webkit-text-stroke:2px_black]">THEPT#</h1>
-                    <p className="text-gray-500 text-sm mt-3 font-medium">물리치료/재활 일정 관리 시스템</p>
+                    <p className="text-gray-500 text-sm mt-3 font-medium">운동/수업 일정 관리 시스템</p>
                 </div>
 
                 {/* 탭 메뉴 */}
@@ -98,7 +97,7 @@ export default function LoginPage() {
                         className={`flex-1 py-2.5 text-sm font-bold transition-all rounded-lg ${activeTab === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         onClick={() => setActiveTab('admin')}
                     >
-                        관리자(원장)
+                        관리자(센터장)
                     </button>
                 </div>
 
@@ -112,17 +111,22 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
-                            {activeTab === 'member' ? '이메일' : '관리자 아이디 또는 이메일'}
+                            {activeTab === 'member' ? '이메일' : '관리자 아이디'}
                         </label>
                         <div className="relative group">
                             <input
                                 {...register('id')}
                                 type={activeTab === 'member' ? 'email' : 'text'}
                                 className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium placeholder-gray-400"
-                                placeholder={activeTab === 'member' ? "staff@email.com" : "admin@email.com"}
+                                placeholder={activeTab === 'member' ? "staff@email.com" : "아이디를 입력하세요"}
                                 autoCapitalize="none"
                                 autoComplete="username"
                             />
+                            {activeTab === 'admin' && (
+                                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span className="text-gray-400 font-medium text-sm sm:text-base">@thept.co.kr</span>
+                                </div>
+                            )}
                         </div>
                         {errors.id && (
                             <p className="text-red-500 text-xs mt-2 font-bold ml-1">{errors.id.message}</p>
@@ -162,7 +166,7 @@ export default function LoginPage() {
 
                     {activeTab === 'member' && (
                         <p className="text-center text-xs text-gray-400 mt-6 font-medium">
-                            안내: 관리자(원장)에게 발급받은 이메일로 로그인하세요.
+                            안내: 관리자(센터장)에게 발급받은 이메일로 로그인하세요.
                         </p>
                     )}
                 </form>

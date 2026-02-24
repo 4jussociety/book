@@ -1,10 +1,10 @@
-import { DayPicker } from 'react-day-picker'
+﻿import { DayPicker } from 'react-day-picker'
 import { ko } from 'date-fns/locale'
 import 'react-day-picker/style.css' // Ensure styles are available
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, differenceInMinutes, addMinutes } from 'date-fns'
 import { getNow, getStartOfWeekKST, addDaysKST, isSameDayKST, formatKST } from '@/lib/dateUtils'
-import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments, usePatientAppointments } from './useCalendar'
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments, useClientAppointments } from './useCalendar'
 import { getDisplayHourRange } from '../../lib/useOperatingHours'
 import { useAutoCompleteAppointments } from './useAutoCompleteAppointments'
 import { ChevronLeft, ChevronRight, Plus, MessageSquare } from 'lucide-react'
@@ -42,7 +42,7 @@ function minutesToPx(mins: number): number {
 
 // --- Types ---
 type DraftSelection = {
-    therapistId: string
+    instructorId: string
     dayISO: string
     anchorMinutes: number   // 마우스 최초 클릭 위치 (스냅됨)
     currentMinutes: number  // 현재 마우스 위치 (스냅됨)
@@ -54,7 +54,7 @@ export default function WeekView() {
     const [currentDate, setCurrentDate] = useState(getNow())
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [modalData, setModalData] = useState<{
-        date: string; start_time: string; end_time?: string; therapist_id?: string
+        date: string; start_time: string; end_time?: string; instructor_id?: string
     } | null>(null)
     const [now, setNow] = useState(getNow())
     const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -68,7 +68,7 @@ export default function WeekView() {
     // 셀 Hover 상태: + 버튼 표시용
     const [hoverCell, setHoverCell] = useState<{
         dayISO: string
-        therapistId: string
+        instructorId: string
         minutes: number  // 10분 단위로 스냅된 시간 (자정 기준 분)
     } | null>(null)
 
@@ -86,9 +86,9 @@ export default function WeekView() {
     const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
     const deleteMutation = useDeleteAppointment()
 
-    // 치료사 필터 (같은 시스템 소속만)
+    // 선생님 필터 (같은 시스템 소속만)
     const { data: profiles } = useProfiles(profile?.system_id)
-    const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([])
+    const [selectedInstructorIds, setselectedInstructorIds] = useState<string[]>([])
 
     const [miniCalendarMonth, setMiniCalendarMonth] = useState(currentDate)
 
@@ -97,7 +97,7 @@ export default function WeekView() {
 
     useAutoCompleteAppointments(appointments)
     const updateMutation = useUpdateAppointment()
-    const { data: patientHistory } = usePatientAppointments(selectedAppointment?.patient?.id)
+    const { data: clientHistory } = useClientAppointments(selectedAppointment?.client?.id)
 
     // currentDate가 변경되면 미니 캘린더의 기준 월도 업데이트
     useEffect(() => {
@@ -105,14 +105,14 @@ export default function WeekView() {
     }, [currentDate])
 
     useEffect(() => {
-        if (profiles && selectedTherapistIds.length === 0) {
+        if (profiles && selectedInstructorIds.length === 0) {
             // 로그인한 사용자 본인이 목록에 있다면 본인만 선택
             const myProfile = profiles.find((p: { id: string }) => p.id === profile?.id)
             if (myProfile) {
-                setSelectedTherapistIds([myProfile.id])
+                setselectedInstructorIds([myProfile.id])
             } else {
                 // 본인이 없다면 (관리자 등) 전체 선택
-                setSelectedTherapistIds(profiles.map((p: { id: string }) => p.id))
+                setselectedInstructorIds(profiles.map((p: { id: string }) => p.id))
             }
         }
     }, [profiles, profile?.id])
@@ -131,7 +131,7 @@ export default function WeekView() {
     const weekDays = Array.from({ length: 7 }).map((_, i) => addDaysKST(weekStart, i))
     const timeSlots = Array.from({ length: TOTAL_HOURS }).map((_, i) => START_HOUR + i)
 
-    const activeTherapists = profiles?.filter((p: { id: string }) => selectedTherapistIds.includes(p.id)) || []
+    const activeinstructors = profiles?.filter((p: { id: string }) => selectedInstructorIds.includes(p.id)) || []
 
     const handlePrevWeek = () => setCurrentDate(addDaysKST(currentDate, -7))
     const handleNextWeek = () => setCurrentDate(addDaysKST(currentDate, 7))
@@ -142,10 +142,10 @@ export default function WeekView() {
     // 드래그 생성: 마우스 핸들러
     // ──────────────────────────────
 
-    /** 치료사 컬럼 그리드 내부에서 mousedown 발생 시 호출 */
+    /** 선생님 컨럼 그리드 내부에서 mousedown 발생 시 호출 */
     const handleGridMouseDown = useCallback((
         dayISO: string,
-        therapistId: string,
+        instructorId: string,
         e: React.MouseEvent<HTMLDivElement>
     ) => {
         // 좌클릭만 허용
@@ -169,21 +169,21 @@ export default function WeekView() {
         )
 
         setDraft({
-            therapistId,
+            instructorId,
             dayISO,
             anchorMinutes,
             currentMinutes: anchorMinutes + MIN_DURATION, // Start with 30-min block
         })
     }, [])
 
-    /** 치료사 컬럼 그리드 내부에서 mousemove 발생 시 호출 */
+    /** 선생님 컨럼 그리드 내부에서 mousemove 발생 시 호출 */
     const handleGridMouseMove = useCallback((
         dayISO: string,
-        therapistId: string,
+        instructorId: string,
         e: React.MouseEvent<HTMLDivElement>
     ) => {
         const d = draftRef.current
-        if (!d || d.dayISO !== dayISO || d.therapistId !== therapistId) return
+        if (!d || d.dayISO !== dayISO || d.instructorId !== instructorId) return
 
         const rect = e.currentTarget.getBoundingClientRect()
         const offsetY = e.clientY - rect.top
@@ -226,7 +226,7 @@ export default function WeekView() {
             date: dayStr,
             start_time: `${sH.toString().padStart(2, '0')}:${sM.toString().padStart(2, '0')}`,
             end_time: `${eH.toString().padStart(2, '0')}:${eM.toString().padStart(2, '0')}`,
-            therapist_id: d.therapistId,
+            instructor_id: d.instructorId,
         })
         setIsModalOpen(true)
         setDraft(null)
@@ -261,7 +261,7 @@ export default function WeekView() {
         // 이동 (Move)
         if (over && active.data.current) {
             const appointment = active.data.current as Appointment
-            const [dateStr, hourStr, therapistId] = (over.id as string).split('|')
+            const [dateStr, hourStr, instructorId] = (over.id as string).split('|')
 
             // 기존 로직: 드롭된 '시간 슬롯(Start Hour)' 기준
             // 개선 로직: delta.y를 사용하여 '분' 단위 디테일 계산
@@ -286,19 +286,19 @@ export default function WeekView() {
             // 대안: 
             // 1. Appointment의 원래 시작 시간에서 delta.y 만큼 더함.
             // 2. 10분 단위 스냅.
-            // 3. Therapist/Day는 over.id를 참고.
+            // 3. Instructor/Day는 over.id를 참고.
 
             // 이동한 분(Minute) 변화량 (10분 스냅)
             const moveMinutes = Math.round(delta.y / PX_PER_MIN / SNAP_MINUTES) * SNAP_MINUTES
 
-            // 날짜/치료사 변경 여부 확인
+            // 날짜/선생님 변경 여부 확인
             const isDayChanged = !isSameDayKST(originalStart, slotStartTime)
-            const isTherapistChanged = appointment.therapist_id !== therapistId
+            const isInstructorChanged = appointment.instructor_id !== instructorId
 
             let newStartDate: Date
 
-            if (isDayChanged || isTherapistChanged) {
-                // 날짜나 치료사가 바뀌면, 해당 슬롯의 정각(00분) + 원래 분(minute)으로 일단 이동 후 delta 적용?
+            if (isDayChanged || isInstructorChanged) {
+                // 날짜나 선생님이 바뀌면, 해당 슬롯의 정각(00분) + 원래 분(minute)으로 일단 이동 후 delta 적용?
                 // 아니면 그냥 Drop된 슬롯(Hour)의 00분으로 맞추고 분만 유지?
 
                 // 사용자가 '06:30' 슬롯에 드롭했다면?
@@ -320,7 +320,7 @@ export default function WeekView() {
 
                 // 전략:
                 // 1. y축 이동 -> 시간 변경 (분 단위)
-                // 2. over된 컬럼 -> 날짜/치료사 변경
+                // 2. over된 컨럼 -> 날짜/선생님 변경
 
                 // originalStart + moveMinutes (시간 변경)
                 const tempDate = addMinutes(originalStart, moveMinutes)
@@ -330,7 +330,7 @@ export default function WeekView() {
                 newStartDate.setHours(tempDate.getHours(), tempDate.getMinutes(), 0, 0)
 
             } else {
-                // 같은 날, 같은 치료사 -> 단순히 시간만 변경
+                // 같은 날, 같은 선생님 -> 단순히 시간만 변경
                 newStartDate = addMinutes(originalStart, moveMinutes)
             }
 
@@ -353,7 +353,7 @@ export default function WeekView() {
                 updates: {
                     start_time: newStartDate.toISOString(),
                     end_time: newEndDate.toISOString(),
-                    therapist_id: therapistId,
+                    instructor_id: instructorId,
                     version: appointment.version,
                 },
             })
@@ -390,8 +390,8 @@ export default function WeekView() {
     }, [appointments, updateMutation])
 
     // Ghost overlay geometry
-    const ghostForColumn = useCallback((dayISO: string, therapistId: string) => {
-        if (!draft || draft.dayISO !== dayISO || draft.therapistId !== therapistId) return null
+    const ghostForColumn = useCallback((dayISO: string, instructorId: string) => {
+        if (!draft || draft.dayISO !== dayISO || draft.instructorId !== instructorId) return null
 
         const startMins = Math.min(draft.anchorMinutes, draft.currentMinutes)
         const endMins = Math.max(draft.anchorMinutes, draft.currentMinutes)
@@ -431,7 +431,24 @@ export default function WeekView() {
                                 if (orientation === 'left') return <ChevronLeft className="w-4 h-4" />
                                 if (orientation === 'right') return <ChevronRight className="w-4 h-4" />
                                 return <></>
-                            }
+                            },
+                            Weekday: ({ children, ...props }) => {
+                                const dayIndex = props['aria-colindex']
+                                // aria-colindex: 1=일, 2=월, ..., 7=토
+                                const colorClass = dayIndex === 1 ? 'text-red-500' : dayIndex === 7 ? 'text-blue-500' : ''
+                                return <th {...props} className={`${props.className || ''} ${colorClass}`}>{children}</th>
+                            },
+                            DayButton: ({ day, modifiers, ...props }) => {
+                                const dayOfWeek = day.date.getDay() // 0=일, 6=토
+                                const isToday = modifiers?.today
+                                const isSelected = modifiers?.selected
+                                let colorStyle = {}
+                                if (!isToday && !isSelected) {
+                                    if (dayOfWeek === 0) colorStyle = { color: '#EF4444' }
+                                    if (dayOfWeek === 6) colorStyle = { color: '#3B82F6' }
+                                }
+                                return <button {...props} style={{ ...props.style, ...colorStyle }} />
+                            },
                         }}
                         modifiers={{
                             booked: (date) => monthlyAppointments?.some(app =>
@@ -439,7 +456,7 @@ export default function WeekView() {
                                 app.event_type === 'APPOINTMENT' &&
                                 app.status !== 'CANCELLED' &&
                                 app.status !== 'NOSHOW' &&
-                                (selectedTherapistIds.length === 0 || (app.therapist_id && selectedTherapistIds.includes(app.therapist_id)))
+                                (selectedInstructorIds.length === 0 || (app.instructor_id && selectedInstructorIds.includes(app.instructor_id)))
                             ) ?? false
                         }}
                         modifiersClassNames={{
@@ -472,28 +489,28 @@ export default function WeekView() {
                     />
                 </div>
 
-                {/* Therapist Legend / Filter could go here */}
+                {/* Instructor Legend / Filter could go here */}
                 <div>
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-3 px-2">Therapists</h3>
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-3 px-2">instructors</h3>
                     <div className="space-y-1">
                         {profiles?.map((p: { id: string; full_name?: string; name?: string }) => (
                             <button
                                 key={p.id}
                                 onClick={() =>
-                                    setSelectedTherapistIds(prev =>
+                                    setselectedInstructorIds(prev =>
                                         prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id],
                                     )
                                 }
                                 className={clsx(
                                     'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left',
-                                    selectedTherapistIds.includes(p.id)
+                                    selectedInstructorIds.includes(p.id)
                                         ? 'bg-blue-50 text-blue-700'
                                         : 'text-gray-500 hover:bg-gray-50'
                                 )}
                             >
                                 <div className={clsx(
                                     "w-2.5 h-2.5 rounded-full transition-all",
-                                    selectedTherapistIds.includes(p.id) ? "bg-blue-500 ring-2 ring-blue-200" : "bg-gray-300"
+                                    selectedInstructorIds.includes(p.id) ? "bg-blue-500 ring-2 ring-blue-200" : "bg-gray-300"
                                 )} />
                                 {p.full_name || p.name}
                             </button>
@@ -625,29 +642,29 @@ export default function WeekView() {
                                             )
                                         })()}
 
-                                        {/* Therapist Columns */}
+                                        {/* Instructor Columns */}
                                         <div className="flex relative h-full">
 
-                                            {activeTherapists.map((therapist: { id: string; full_name?: string; name?: string }) => {
-                                                const ghost = ghostForColumn(dayISO, therapist.id)
+                                            {activeinstructors.map((instructor: { id: string; full_name?: string; name?: string }) => {
+                                                const ghost = ghostForColumn(dayISO, instructor.id)
 
                                                 return (
                                                     <div
-                                                        key={therapist.id}
+                                                        key={instructor.id}
                                                         className={clsx('border-r border-gray-100 relative', isMobile ? 'flex-1 min-w-[100px]' : 'w-[120px]')}
                                                     >
-                                                        {/* Therapist sub-header */}
+                                                        {/* Instructor sub-header */}
                                                         <div className="h-6 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-500 sticky z-40 top-12">
-                                                            {therapist.full_name || therapist.name}
+                                                            {instructor.full_name || instructor.name}
                                                         </div>
 
                                                         {/* The actual time grid - mousemove tracked here */}
                                                         <div
                                                             className="relative"
                                                             style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}
-                                                            onMouseDown={e => handleGridMouseDown(dayISO, therapist.id, e)}
+                                                            onMouseDown={e => handleGridMouseDown(dayISO, instructor.id, e)}
                                                             onMouseMove={e => {
-                                                                handleGridMouseMove(dayISO, therapist.id, e)
+                                                                handleGridMouseMove(dayISO, instructor.id, e)
                                                                 // Hover 시 + 버튼 위치 계산 (드래그 중이 아닐 때만)
                                                                 if (!draftRef.current) {
                                                                     const rect = e.currentTarget.getBoundingClientRect()
@@ -658,7 +675,7 @@ export default function WeekView() {
                                                                         START_HOUR * 60,
                                                                         pxToMinutes(offsetY - halfHeight)
                                                                     )
-                                                                    setHoverCell({ dayISO, therapistId: therapist.id, minutes: snappedMinutes })
+                                                                    setHoverCell({ dayISO, instructorId: instructor.id, minutes: snappedMinutes })
                                                                 }
                                                             }}
                                                             onMouseLeave={() => setHoverCell(null)}
@@ -667,20 +684,20 @@ export default function WeekView() {
                                                             {timeSlots.map(hour => (
                                                                 <DroppableSlot
                                                                     key={hour}
-                                                                    id={`${dayISO}|${hour}|${therapist.id}`}
+                                                                    id={`${dayISO}|${hour}|${instructor.id}`}
                                                                 />
                                                             ))}
 
                                                             {/* Hover + Button */}
                                                             {hoverCell && !draft &&
                                                                 hoverCell.dayISO === dayISO &&
-                                                                hoverCell.therapistId === therapist.id && (() => {
+                                                                hoverCell.instructorId === instructor.id && (() => {
                                                                     // 해당 위치에 이미 예약이 있는지 확인
                                                                     const hoverStart = hoverCell.minutes
                                                                     const hoverEnd = hoverStart + MIN_DURATION
                                                                     const hasConflict = appointments?.some(
                                                                         (apt: Appointment) => {
-                                                                            if (apt.therapist_id !== therapist.id) return false
+                                                                            if (apt.instructor_id !== instructor.id) return false
                                                                             if (!isSameDayKST(new Date(apt.start_time), day)) return false
                                                                             const aptStartH = parseInt(formatKST(new Date(apt.start_time), 'H'))
                                                                             const aptStartM = parseInt(formatKST(new Date(apt.start_time), 'm'))
@@ -736,7 +753,7 @@ export default function WeekView() {
                                                                 ?.filter(
                                                                     (apt: Appointment) =>
                                                                         isSameDayKST(new Date(apt.start_time), day) &&
-                                                                        apt.therapist_id === therapist.id,
+                                                                        apt.instructor_id === instructor.id,
                                                                 )
                                                                 .map((apt: Appointment) => {
                                                                     const startTime = new Date(apt.start_time)
@@ -869,11 +886,11 @@ export default function WeekView() {
                                         <h3 className="text-lg font-black tracking-tight">
                                             {selectedAppointment.event_type === 'BLOCK'
                                                 ? `🔒 ${selectedAppointment.block_title || '잠금'}`
-                                                : selectedAppointment.patient?.name || '예약'}
+                                                : selectedAppointment.client?.name || '예약'}
                                         </h3>
-                                        {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.patient?.patient_no && (
+                                        {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.client?.client_no && (
                                             <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-bold">
-                                                {selectedAppointment.patient.is_manual_no ? '' : '#'}{selectedAppointment.patient.patient_no}
+                                                {selectedAppointment.client.is_manual_no ? '' : '#'}{selectedAppointment.client.client_no}
                                             </span>
                                         )}
                                         {selectedAppointment.event_type === 'APPOINTMENT' && (
@@ -931,10 +948,10 @@ export default function WeekView() {
                                         {formatKST(new Date(selectedAppointment.end_time), 'HH:mm')}
                                     </span>
                                 </div>
-                                {selectedAppointment.therapist?.full_name && (
+                                {selectedAppointment.instructor?.full_name && (
                                     <div className="flex items-center gap-3 text-sm">
-                                        <span className="text-gray-400 w-16 text-right font-bold">치료사</span>
-                                        <span className="font-bold text-gray-700">{selectedAppointment.therapist.full_name}</span>
+                                        <span className="text-gray-400 w-16 text-right font-bold">선생님</span>
+                                        <span className="font-bold text-gray-700">{selectedAppointment.instructor.full_name}</span>
                                     </div>
                                 )}
 
@@ -958,12 +975,12 @@ export default function WeekView() {
                                         </div>
                                     </div>
                                 )}
-                                {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.patient && patientHistory && (
+                                {selectedAppointment.event_type === 'APPOINTMENT' && selectedAppointment.client && clientHistory && (
                                     <div className="flex flex-col gap-1 text-sm pt-2 border-t border-gray-100">
-                                        <span className="text-gray-400 font-bold text-xs">환자 메모 히스토리</span>
+                                        <span className="text-gray-400 font-bold text-xs">고객 메모 히스토리</span>
                                         <div className="bg-amber-50 rounded-lg p-3 text-xs text-gray-700 max-h-[100px] overflow-y-auto whitespace-pre-wrap border border-amber-100 scrollbar-thin scrollbar-thumb-amber-200 space-y-2">
                                             <div className="text-[9px] text-amber-500 font-bold mb-1 sticky top-0 bg-amber-50 pb-1 border-b border-amber-100">이전 기록</div>
-                                            {patientHistory.filter(app => app.note).map(app => (
+                                            {clientHistory.filter(app => app.note).map(app => (
                                                 <div key={app.id} className="border-b border-amber-100 last:border-0 pb-1 last:pb-0">
                                                     <span className="text-[10px] text-amber-600 font-bold block mb-0.5">
                                                         [{formatKST(new Date(app.start_time), 'yyyy-MM-dd HH:mm')}]
@@ -971,7 +988,7 @@ export default function WeekView() {
                                                     {app.note}
                                                 </div>
                                             ))}
-                                            {patientHistory.filter(app => app.note).length === 0 && (
+                                            {clientHistory.filter(app => app.note).length === 0 && (
                                                 <div className="text-gray-400 text-center py-2">기록 없음</div>
                                             )}
                                         </div>
@@ -1059,16 +1076,16 @@ export default function WeekView() {
                                             onClick={() => {
                                                 const aptDate = new Date(selectedAppointment.start_time)
                                                 const dateStr = formatKST(aptDate, 'yyyy년 M월 d일(EEE) HH:mm')
-                                                const therapistName = selectedAppointment.therapist?.full_name || '담당 선생님'
+                                                const instructorName = selectedAppointment.instructor?.full_name || '담당 선생님'
 
                                                 // 기본 템플릿 또는 사용자 설정 템플릿 사용
-                                                const template = profile?.message_template || `[예약 안내] {환자}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`
+                                                const template = profile?.message_template || `[예약 안내] {고객}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`
 
                                                 const text = template
-                                                    .replace(/{환자}/g, selectedAppointment.patient?.name || '환자')
+                                                    .replace(/{고객}/g, selectedAppointment.client?.name || '고객')
                                                     .replace(/{일시}/g, dateStr)
-                                                    .replace(/{장소}/g, profile?.organization_name || '치료실')
-                                                    .replace(/{담당자}/g, therapistName)
+                                                    .replace(/{장소}/g, profile?.organization_name || '센터')
+                                                    .replace(/{담당자}/g, instructorName)
                                                     .replace(/{연락처}/g, profile?.contact_number || '')
 
                                                 navigator.clipboard.writeText(text).then(() => {

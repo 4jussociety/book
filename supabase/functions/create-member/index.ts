@@ -1,4 +1,4 @@
-// @ts-ignore
+﻿// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
         }
 
         if (system.owner_id !== user.id) {
-            return new Response(JSON.stringify({ error: '소유자(원장) 권한이 있는 사용자만 멤버를 추가할 수 있습니다.' }), {
+            return new Response(JSON.stringify({ error: '소유자(센터장) 권한이 있는 사용자만 멤버를 추가할 수 있습니다.' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 403,
             })

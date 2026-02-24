@@ -5,19 +5,21 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert, Trash2 } from 'lucide-react'
 
 const DURATION_BUCKETS = [30, 40, 50, 60]
 type DurationPrice = { durationMin: number; priceKrw: number }
 const defaultPrices = (): DurationPrice[] => DURATION_BUCKETS.map(d => ({ durationMin: d, priceKrw: 0 }))
 
 export default function AdminPage() {
-    const { user, profile } = useAuth()
+    const { user, profile, refreshProfile } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [organizationName, setOrganizationName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
     const [adminName, setAdminName] = useState('')
     const [messageTemplate, setMessageTemplate] = useState('')
+    const [resetConfirm, setResetConfirm] = useState('')
+    const [isResetting, setIsResetting] = useState(false)
     const [prices, setPrices] = useState<DurationPrice[]>(defaultPrices())
 
     useEffect(() => {
@@ -26,7 +28,7 @@ export default function AdminPage() {
             setContactNumber(profile.contact_number || '')
             setAdminName(profile.admin_name || '')
             setMessageTemplate(profile.message_template ||
-                `[예약 안내] {환자}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`)
+                `[예약 안내] {고객}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`)
 
             // pricing 배열에서 가격 데이터 매핑
             if (profile.pricing && profile.pricing.length > 0) {
@@ -94,6 +96,45 @@ export default function AdminPage() {
         }
     }
 
+    const handleDeleteSystem = async () => {
+        if (resetConfirm !== '초기화') return
+        if (!profile?.system_id) return
+        if (!confirm('정말로 시스템을 완전히 삭제하시겠습니까?\n\n모든 멤버 계정, 고객, 예약, 설정 데이터가 영구 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.')) return
+
+        setIsResetting(true)
+        try {
+            const { data: sessionData } = await supabase.auth.getSession()
+            if (!sessionData.session) throw new Error('세션이 만료되었습니다.')
+
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+            const response = await fetch(`${supabaseUrl}/functions/v1/delete-system`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session.access_token}`,
+                    'apikey': supabaseAnonKey
+                },
+                body: JSON.stringify({ systemId: profile.system_id })
+            })
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => null)
+                throw new Error(errData?.error || '시스템 삭제 실패')
+            }
+
+            await refreshProfile()
+            // system_id가 null이 되면 RootLayout에서 SystemSetupModal이 자동으로 나타남
+        } catch (err: any) {
+            console.error('시스템 삭제 실패:', err)
+            alert(err?.message || '시스템 삭제에 실패했습니다.')
+        } finally {
+            setIsResetting(false)
+            setResetConfirm('')
+        }
+    }
+
     const handlePriceChange = (durationMin: number, value: string) => {
         const priceKrw = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0
         const updated = prices.map(p => p.durationMin === durationMin ? { ...p, priceKrw } : p)
@@ -141,8 +182,8 @@ export default function AdminPage() {
 
 
             {/* 단가 설정 */}
-            <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="치료 시간별 단가 설정">
-                <p className="text-xs text-gray-400 mb-4">각 치료 시간 구간의 1회당 단가를 설정합니다. (통계 매출 계산에 사용)</p>
+            <Section icon={<DollarSign className="w-5 h-5" />} iconBg="bg-green-50" iconColor="text-green-600" title="수업 시간별 단가 설정">
+                <p className="text-xs text-gray-400 mb-4">각 수업 시간 구간의 1회당 단가를 설정합니다. (통계 매출 계산에 사용)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {prices.map(p => (
                         <div key={p.durationMin} className="flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl">
@@ -168,7 +209,7 @@ export default function AdminPage() {
                 <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사용 가능한 변수</h3>
                     <div className="flex flex-wrap gap-2 text-sm font-medium">
-                        {['{환자}', '{일시}', '{장소}', '{담당자}', '{연락처}'].map(v => (
+                        {['{고객}', '{일시}', '{장소}', '{담당자}', '{연락처}'].map(v => (
                             <code key={v} className="px-2 py-1 bg-gray-100 rounded text-gray-700 text-xs">{v}</code>
                         ))}
                     </div>
@@ -184,7 +225,7 @@ export default function AdminPage() {
                     <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-2">미리보기 (실제 예시)</span>
                     <pre className="text-sm text-indigo-900 whitespace-pre-wrap font-sans">
                         {messageTemplate
-                            .replace('{환자}', '김철수')
+                            .replace('{고객}', '김철수')
                             .replace('{일시}', '2024년 3월 15일(금) 14:00')
                             .replace('{장소}', organizationName || 'Re:무브 체형교정')
                             .replace('{담당자}', adminName || profile.full_name || '홍길동')
@@ -195,6 +236,38 @@ export default function AdminPage() {
             </Section>
 
 
+            {/* 시스템 전체 초기화 */}
+            <Section icon={<Trash2 className="w-5 h-5" />} iconBg="bg-red-50" iconColor="text-red-600" title="시스템 전체 초기화">
+                <div className="space-y-4">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <p className="text-sm text-red-700 font-bold mb-1">⚠️ 위험한 작업</p>
+                        <p className="text-xs text-red-600">
+                            시스템을 삭제하면 모든 멤버, 고객, 예약, 설정 데이터가 <strong>영구적으로 삭제</strong>됩니다.<br />
+                            삭제 후 새로운 시스템을 바로 생성할 수 있습니다.
+                        </p>
+                    </div>
+                    <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">확인 입력</label>
+                            <input
+                                type="text"
+                                value={resetConfirm}
+                                onChange={e => setResetConfirm(e.target.value)}
+                                placeholder='삭제하려면 "초기화"를 입력하세요'
+                                className="w-full px-4 py-2 bg-white text-gray-900 border border-red-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
+                            />
+                        </div>
+                        <button
+                            onClick={handleDeleteSystem}
+                            disabled={resetConfirm !== '초기화' || isResetting}
+                            className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                        >
+                            {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            시스템 삭제
+                        </button>
+                    </div>
+                </div>
+            </Section>
 
             {/* 플로팅/스틱키 하단 저장 버튼 */}
             <div className="flex justify-end sticky bottom-4">
