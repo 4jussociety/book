@@ -8,10 +8,10 @@ export default function RootLayout() {
     const { profile } = useAuth()
 
     // Supabase Realtime: appointments 테이블 변경 실시간 구독 (전역 1회)
-    // 내 병원(system_id)의 데이터 변경만 구독
+    // 내 센터(system_id)의 데이터 변경만 구독
     useRealtimeAppointments(profile?.system_id)
 
-    // 관리자(테라피스트)인데 시스템 ID가 없는 경우 개설 모달 표시
+    // 관리자(강사)인데 시스템 ID가 없는 경우 개설 모달 표시
     const showSetupModal = profile && !profile.system_id && profile.role === 'pending_admin'
 
     return (

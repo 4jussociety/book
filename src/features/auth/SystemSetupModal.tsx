@@ -1,4 +1,4 @@
-﻿// SystemSetupModal: 새 시스템(병원/센터) 개설 모달
+﻿// SystemSetupModal: 새 시스템(센터/센터) 개설 모달
 // 10자리 숫자 일련번호 생성 및 시스템 등록 처리
 
 import { useState } from 'react'
