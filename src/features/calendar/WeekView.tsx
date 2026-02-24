@@ -252,6 +252,18 @@ export default function WeekView() {
             container.scrollTop = nowPx - containerHeight / 2
             hasScrolledToNow.current = true
         }
+
+        // 모바일에서 오늘 열이 화면 가운데에 오도록 가로 스크롤
+        if (isMobile) {
+            const todayEl = container.querySelector('[data-today="true"]') as HTMLElement
+            if (todayEl) {
+                const containerWidth = container.clientWidth
+                const todayLeft = todayEl.offsetLeft
+                const todayWidth = todayEl.offsetWidth
+                const timeAxisWidth = 48
+                container.scrollLeft = todayLeft - timeAxisWidth - (containerWidth - timeAxisWidth - todayWidth) / 2
+            }
+        }
     }, [now, isMobile])
 
     // DnD (이동)
@@ -591,7 +603,7 @@ export default function WeekView() {
                 >
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto flex bg-[#F0F4F8] relative scrollbar-hide select-none">
                         {/* Time Axis (sticky left) */}
-                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 z-50 h-max', isMobile ? 'w-12 pt-[72px]' : 'w-16 pt-[72px]')}>
+                        <div className={clsx('flex-none border-r bg-white/90 backdrop-blur-xl sticky left-0 h-max', isMobile ? 'w-12 pt-[72px] z-[30]' : 'w-16 pt-[72px] z-40')}>
                             <div className="relative" style={{ height: `${TOTAL_HOURS * PX_PER_HOUR}px` }}>
                                 {timeSlots.map(hour => {
                                     const period = hour < 12 ? 'AM' : 'PM'
@@ -620,6 +632,7 @@ export default function WeekView() {
                                 return (
                                     <div
                                         key={dayISO}
+                                        data-today={isToday ? 'true' : undefined}
                                         className={clsx(
                                             'flex flex-col border-r border-gray-200/50 relative',
                                             isToday ? 'bg-blue-50/30' : 'bg-white/50',
