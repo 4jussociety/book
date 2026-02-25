@@ -166,33 +166,48 @@ export default function MemberManagement() {
 
         setIsResetting(true)
         try {
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-            if (sessionError || !sessionData.session) {
-                throw new Error('로그인 세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.')
-            }
-
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-            const response = await fetch(`${supabaseUrl}/functions/v1/update-member-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`,
-                    'apikey': supabaseAnonKey
-                },
-                body: JSON.stringify({
-                    systemId: profile.system_id,
-                    targetUserId: resetTargetUser.user_id,
-                    newPassword: newPassword
+            // 본인(관리자)의 비밀번호를 변경하는 경우
+            if (resetTargetUser.user_id === profile.id || resetTargetUser.role === 'owner') {
+                const { error } = await supabase.auth.updateUser({
+                    password: newPassword
                 })
-            })
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => null)
-                throw new Error(errData?.error || `비밀번호 변경 실패 (상태 코드: ${response.status})`)
+                if (error) {
+                    throw new Error(error.message || '비밀번호 변경에 실패했습니다.')
+                }
+
+                alert('본인의 비밀번호가 성공적으로 변경되었습니다.')
+            } else {
+                // 다른 멤버의 비밀번호를 강제 초기화하는 경우 (Edge Function 사용)
+                const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+                if (sessionError || !sessionData.session) {
+                    throw new Error('로그인 세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.')
+                }
+
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+                const response = await fetch(`${supabaseUrl}/functions/v1/update-member-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionData.session.access_token}`,
+                        'apikey': supabaseAnonKey
+                    },
+                    body: JSON.stringify({
+                        systemId: profile.system_id,
+                        targetUserId: resetTargetUser.user_id,
+                        newPassword: newPassword
+                    })
+                })
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => null)
+                    throw new Error(errData?.error || `비밀번호 변경 실패 (상태 코드: ${response.status})`)
+                }
+
+                alert(`${resetTargetUser.profiles?.full_name} 님의 비밀번호가 성공적으로 변경되었습니다.`)
             }
 
-            alert(`${resetTargetUser.profiles?.full_name} 님의 비밀번호가 성공적으로 변경되었습니다.`)
             setShowResetModal(false)
             setNewPassword('')
             setResetTargetUser(null)
@@ -300,6 +315,7 @@ export default function MemberManagement() {
                     <div>
                         <h1 className="text-xl md:text-2xl font-bold text-gray-900">멤버 관리</h1>
                         <p className="text-gray-500 text-xs md:text-sm hidden sm:block">직원의 접속 계정(ID/PW)을 직접 발급하고 권한을 관리합니다.</p>
+                        <p className="text-blue-600 text-xs font-bold mt-1 bg-blue-50 px-2 py-1 rounded inline-block">💡 팁: 새 멤버 발급 시 설정한 초기 비밀번호를 직원에게 따로 전달해주세요.</p>
                         {!profile?.system_id && (
                             <p className="text-red-500 text-xs font-bold mt-1">⚠️ 시스템 ID가 설정되지 않았습니다. 새로고침 해주세요.</p>
                         )}
@@ -606,20 +622,18 @@ export default function MemberManagement() {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            {member.role !== 'owner' && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setResetTargetUser(member)
-                                                                        setNewPassword('')
-                                                                        setShowResetModal(true)
-                                                                    }}
-                                                                    className="px-3 py-1.5 bg-yellow-50 text-yellow-600 hover:bg-yellow-600 hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
-                                                                    title="비밀번호 초기화"
-                                                                >
-                                                                    <Key className="w-3.5 h-3.5" />
-                                                                    비번초기화
-                                                                </button>
-                                                            )}
+                                                            <button
+                                                                onClick={() => {
+                                                                    setResetTargetUser(member)
+                                                                    setNewPassword('')
+                                                                    setShowResetModal(true)
+                                                                }}
+                                                                className="px-3 py-1.5 bg-yellow-50 text-yellow-600 hover:bg-yellow-600 hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                                                title={member.role === 'owner' ? "비밀번호 변경" : "비밀번호 초기화"}
+                                                            >
+                                                                <Key className="w-3.5 h-3.5" />
+                                                                {member.role === 'owner' ? "비번변경" : "비번초기화"}
+                                                            </button>
                                                             {member.role !== 'owner' && (
                                                                 <button
                                                                     onClick={() => startEditing(member)}
@@ -791,7 +805,15 @@ export default function MemberManagement() {
                         <form onSubmit={handleResetPassword} className="p-6">
                             <div className="mb-6">
                                 <p className="text-sm text-gray-600 mb-4">
-                                    <span className="font-bold text-gray-900">{resetTargetUser.profiles?.full_name}</span> 님의 접속 비밀번호를 강제로 초기화 및 변경합니다.
+                                    {(resetTargetUser.user_id === profile?.id || resetTargetUser.role === 'owner') ? (
+                                        <>
+                                            <span className="font-bold text-gray-900">본인({resetTargetUser.profiles?.full_name})</span>의 비밀번호를 안전하게 변경합니다.
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="font-bold text-gray-900">{resetTargetUser.profiles?.full_name}</span> 님의 접속 비밀번호를 강제로 초기화 및 변경합니다.
+                                        </>
+                                    )}
                                 </p>
 
                                 <label className="block text-sm font-bold text-gray-700 mb-1.5">새 비밀번호 (6자 이상)</label>
