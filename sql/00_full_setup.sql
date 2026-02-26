@@ -80,16 +80,25 @@ CREATE TABLE IF NOT EXISTS system_members (
 );
 
 -- ==========================================
--- (10) global_ads: 플랫폼 운영자 전용 광고 관리
+-- (10) global_ads: 플랫폼 운영자 전용 광고 관리 (무한 스택 배너 지원)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS global_ads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    slot_id TEXT NOT NULL UNIQUE,
+    slot_id TEXT NOT NULL,
     image_url TEXT NOT NULL,
     link_url TEXT,
     is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+-- 기존 DB 마이그레이션 호환용
+ALTER TABLE global_ads ADD COLUMN IF NOT EXISTS slot_id TEXT;
+ALTER TABLE global_ads ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+ALTER TABLE global_ads DROP CONSTRAINT IF EXISTS unique_slot_id;
+DO $$ BEGIN
+    ALTER TABLE global_ads ALTER COLUMN slot_id SET NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- ==========================================
 -- 2. 인덱스 생성
