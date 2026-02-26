@@ -104,11 +104,6 @@ export default function WeekView() {
         .filter(ad => ad.is_active && ad.slot_id === 'instructor_bottom')
         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 
-    // currentDate가 변경되면 미니 캘린더의 기준 월도 업데이트
-    useEffect(() => {
-        setMiniCalendarMonth(currentDate)
-    }, [currentDate])
-
     useEffect(() => {
         if (profiles && selectedInstructorIds.length === 0) {
             // 로그인한 사용자 본인이 목록에 있다면 본인만 선택

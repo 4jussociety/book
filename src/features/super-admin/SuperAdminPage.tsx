@@ -138,22 +138,32 @@ export default function SuperAdminPage() {
                 return
             }
 
-            // Upsert payload 생성
-            const payload = slotAds.map((ad, index) => {
-                const isTemp = ad.id.startsWith('temp-')
-                return {
-                    ...(isTemp ? {} : { id: ad.id }), // temp 아이디는 DB insert 시 제외
-                    slot_id: ad.slot_id,
-                    image_url: ad.image_url,
-                    link_url: ad.link_url,
-                    is_active: ad.is_active,
-                    sort_order: index // 표시된 순서대로 저장
-                }
-            })
+            // 기존 광고 (업데이트)와 신규 광고 (추가) 분리
+            const adsToUpdate = slotAds.filter(ad => !ad.id.startsWith('temp-')).map((ad, index) => ({
+                id: ad.id,
+                slot_id: ad.slot_id,
+                image_url: ad.image_url,
+                link_url: ad.link_url,
+                is_active: ad.is_active,
+                sort_order: index
+            }))
 
-            if (payload.length > 0) {
-                const { error } = await supabase.from('global_ads').upsert(payload)
-                if (error) throw error
+            const adsToInsert = slotAds.filter(ad => ad.id.startsWith('temp-')).map((ad, index) => ({
+                slot_id: ad.slot_id,
+                image_url: ad.image_url,
+                link_url: ad.link_url,
+                is_active: ad.is_active,
+                sort_order: index
+            }))
+
+            if (adsToUpdate.length > 0) {
+                const { error: updateError } = await supabase.from('global_ads').upsert(adsToUpdate)
+                if (updateError) throw updateError
+            }
+
+            if (adsToInsert.length > 0) {
+                const { error: insertError } = await supabase.from('global_ads').insert(adsToInsert)
+                if (insertError) throw insertError
             }
 
             alert('광고 배너 설정이 저장되었습니다.')
