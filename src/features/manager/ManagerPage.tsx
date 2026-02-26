@@ -260,25 +260,16 @@ export default function ManagerPage() {
 
         setIsResetting(true)
         try {
-            const { data: sessionData } = await supabase.auth.getSession()
-            if (!sessionData.session) throw new Error('세션이 만료되었습니다.')
-
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-            const response = await fetch(`${supabaseUrl}/functions/v1/delete-system`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`,
-                    'apikey': supabaseAnonKey
-                },
-                body: JSON.stringify({ systemId: profile.system_id })
+            const { data, error: fnError } = await supabase.functions.invoke('delete-system', {
+                body: { systemId: profile.system_id }
             })
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => null)
-                throw new Error(errData?.error || '시스템 삭제 실패')
+            if (fnError) {
+                throw new Error(fnError.message || '시스템 삭제 실패')
+            }
+
+            if (data?.error) {
+                throw new Error(data.error)
             }
 
             await refreshProfile()

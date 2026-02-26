@@ -83,31 +83,18 @@ export default function SystemSetupModal() {
                     const instructorEmail = `${managerId}@thept.shop`
                     const instructorName = user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'
 
-                    const { data: sessionData } = await supabase.auth.getSession()
-                    if (sessionData.session) {
-                        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-                        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-                        const response = await fetch(`${supabaseUrl}/functions/v1/create-member`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${sessionData.session.access_token}`,
-                                'apikey': supabaseAnonKey
-                            },
-                            body: JSON.stringify({
-                                systemId: system.id,
-                                email: instructorEmail,
-                                password: '000000',
-                                name: instructorName,
-                                role: 'instructor'
-                            })
-                        })
-
-                        if (!response.ok) {
-                            const errData = await response.json().catch(() => null)
-                            console.warn('선생님 자동 발급 실패 (시스템 생성은 정상):', errData?.error || response.status)
+                    const { data: memberData, error: memberFnError } = await supabase.functions.invoke('create-member', {
+                        body: {
+                            systemId: system.id,
+                            email: instructorEmail,
+                            password: '000000',
+                            name: instructorName,
+                            role: 'instructor'
                         }
+                    })
+
+                    if (memberFnError || memberData?.error) {
+                        console.warn('선생님 자동 발급 실패 (시스템 생성은 정상):', memberFnError?.message || memberData?.error)
                     }
                 } catch (autoMemberErr) {
                     // 선생님 자동 발급 실패해도 시스템 생성 자체는 성공 처리
