@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // 비밀번호 업데이트
-        const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
             targetUserId,
             { password: newPassword }
         )

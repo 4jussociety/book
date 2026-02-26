@@ -16,18 +16,29 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
+        const authHeader = req.headers.get('Authorization')
+
         const supabaseClient = createClient(
             // @ts-ignore
             Deno.env.get('SUPABASE_URL') ?? '',
             // @ts-ignore
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+            { global: { headers: { Authorization: authHeader || '' } } }
         )
 
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: '인증 토큰이 없습니다.' }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 401,
+            })
+        }
+
+        const token = authHeader.replace('Bearer ', '')
+
         // 1. 인증 확인
-        const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
         if (userError || !user) {
-            return new Response(JSON.stringify({ error: '인증되지 않은 접근입니다.' }), {
+            return new Response(JSON.stringify({ error: '인증되지 않은 접근입니다.', details: userError?.message }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 401,
             })
