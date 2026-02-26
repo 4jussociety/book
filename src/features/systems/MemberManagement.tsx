@@ -180,30 +180,20 @@ export default function MemberManagement() {
                 alert('본인의 비밀번호가 성공적으로 변경되었습니다.')
             } else {
                 // 다른 멤버의 비밀번호를 강제 초기화하는 경우 (Edge Function 사용)
-                const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-                if (sessionError || !sessionData.session) {
-                    throw new Error('로그인 세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.')
-                }
-
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-                const response = await fetch(`${supabaseUrl}/functions/v1/update-member-password`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionData.session.access_token}`,
-                        'apikey': supabaseAnonKey
-                    },
-                    body: JSON.stringify({
+                const { data, error: fnError } = await supabase.functions.invoke('update-member-password', {
+                    body: {
                         systemId: profile.system_id,
                         targetUserId: resetTargetUser.user_id,
                         newPassword: newPassword
-                    })
+                    }
                 })
 
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => null)
-                    throw new Error(errData?.error || `비밀번호 변경 실패 (상태 코드: ${response.status})`)
+                if (fnError) {
+                    throw new Error(fnError.message || '비밀번호 변경에 실패했습니다.')
+                }
+
+                if (data?.error) {
+                    throw new Error(data.error)
                 }
 
                 alert(`${resetTargetUser.profiles?.full_name} 님의 비밀번호가 성공적으로 변경되었습니다.`)
@@ -246,37 +236,18 @@ export default function MemberManagement() {
 
         setIsCreating(true)
         try {
-            // 세션 토큰을 최신으로 갱신한 뒤 가져오기
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-            if (sessionError || !sessionData.session) {
-                throw new Error('로그인 세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.')
-            }
-            const accessToken = sessionData.session.access_token
-
-            // Edge Function을 직접 fetch로 호출하여 에러 메시지를 정확히 추출
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-            const response = await fetch(`${supabaseUrl}/functions/v1/create-member`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'apikey': supabaseAnonKey
-                },
-                body: JSON.stringify({
+            const { data, error: fnError } = await supabase.functions.invoke('create-member', {
+                body: {
                     systemId: profile.system_id,
                     email: newMemberForm.email,
                     password: newMemberForm.password,
                     name: newMemberForm.name,
                     role: newMemberForm.role
-                })
+                }
             })
 
-            const data = await response.json().catch(() => null)
-
-            if (!response.ok) {
-                const errorMessage = data?.error || data?.details || `서버 오류 (${response.status})`
-                throw new Error(errorMessage)
+            if (fnError) {
+                throw new Error(fnError.message || '멤버 발급에 실패했습니다.')
             }
 
             if (data?.error) {
