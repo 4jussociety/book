@@ -76,7 +76,7 @@ export default function GNB() {
                                     {profile?.full_name || '로그인 필요'}
                                 </div>
                                 <div className="text-[10px] font-bold text-blue-500 mt-1 uppercase tracking-wider bg-blue-50 px-1 rounded inline-block">
-                                    {profile?.is_owner ? '관리자' : (profile?.role ? profile.role.toUpperCase() : 'GUEST')}
+                                    {profile?.is_owner ? '매니저' : (profile?.role ? profile.role.toUpperCase() : 'GUEST')}
                                 </div>
                             </div>
                             <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500">

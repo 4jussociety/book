@@ -31,7 +31,7 @@ function App() {
                 <Route path="/clients" element={<ClientList />} />
                 <Route path="/profile" element={<ProfilePage />} />
 
-                {/* 관리자 전용 라우트 */}
+                {/* 매니저 전용 라우트 */}
                 <Route element={<RequireOwner />}>
                   <Route path="/statistics" element={<StatisticsPage />} />
                   <Route path="/members" element={<MemberManagement />} />

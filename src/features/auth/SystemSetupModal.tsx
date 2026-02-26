@@ -74,9 +74,9 @@ export default function SystemSetupModal() {
                 throw memberError
             }
 
-            // 3. 관리자 본인을 선생님(instructor)으로 자동 발급
+            // 3. 매니저 본인을 선생님(instructor)으로 자동 발급
             // 이름: {managerId}@thept.shop (초기 @thept.co.kr가 아님)
-            // (나중에 관리자 프로필에서 이름을 바꿀 수 있지만, 초기 생성용)
+            // (나중에 매니저 프로필에서 이름을 바꿀 수 있지만, 초기 생성용)
             if (user) {
                 try {
                     const managerId = user.email?.split('@')[0] || 'manager'

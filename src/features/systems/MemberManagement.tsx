@@ -1,4 +1,4 @@
-﻿// MemberManagement: 관리자용 멤버 관리 페이지
+﻿// MemberManagement: 매니저용 멤버 관리 페이지
 // 소유자가 직접 멤버(선생님/스태프)의 ID와 비밀번호를 발급하여 시스템에 등록합니다.
 
 import { useState, useEffect, useCallback } from 'react'
@@ -167,7 +167,7 @@ export default function MemberManagement() {
 
         setIsResetting(true)
         try {
-            // 본인(관리자)의 비밀번호를 변경하는 경우
+            // 본인(매니저)의 비밀번호를 변경하는 경우
             if (resetTargetUser.user_id === profile.id || resetTargetUser.role === 'owner') {
                 const { error } = await supabase.auth.updateUser({
                     password: newPassword
@@ -405,7 +405,7 @@ export default function MemberManagement() {
                                                         )}
                                                         {member.role === 'owner' ? (
                                                             <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
-                                                                관리자
+                                                                매니저
                                                             </span>
                                                         ) : (
                                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${member.role === 'staff' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>

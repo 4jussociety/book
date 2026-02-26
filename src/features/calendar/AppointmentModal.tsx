@@ -221,7 +221,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     const onSubmit = async (data: AppointmentForm) => {
         if (!myProfile?.system_id) {
-            alert('시스템 정보가 없습니다. 관리자에게 문의하여 소속 시스템을 설정해주세요.')
+            alert('시스템 정보가 없습니다. 매니저에게 문의하여 소속 시스템을 설정해주세요.')
             return
         }
 

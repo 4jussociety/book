@@ -76,8 +76,8 @@ export default function AccessPendingScreen() {
 
                 <p className="text-gray-500 mb-6 leading-relaxed">
                     {isRejected
-                        ? '해당 스케줄 시스템 관리자에 의해 입장이 거절되었습니다.\n관리자에게 문의하세요.'
-                        : `관리자가 귀하의 입장을 검토하고 있습니다.\n승인이 완료되면 자동으로 이동합니다.`}
+                        ? '해당 스케줄 시스템 매니저에 의해 입장이 거절되었습니다.\n매니저에게 문의하세요.'
+                        : `매니저가 귀하의 입장을 검토하고 있습니다.\n승인이 완료되면 자동으로 이동합니다.`}
                 </p>
 
                 {!isRejected && (
@@ -89,7 +89,7 @@ export default function AccessPendingScreen() {
 
                 {isRejected && (
                     <div className="bg-red-50 p-4 rounded-xl mb-6 text-red-600 text-sm">
-                        ⚠️ 관리자에게 문의하여 다시 시도해주세요.
+                        ⚠️ 매니저에게 문의하여 다시 시도해주세요.
                     </div>
                 )}
 

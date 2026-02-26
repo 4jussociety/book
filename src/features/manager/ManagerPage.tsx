@@ -84,7 +84,7 @@ export default function ManagerPage() {
         }
     }, [profile])
 
-    // 만약 관리자가 아니라면 튕겨냅니다.
+    // 만약 매니저가 아니라면 튕겨냅니다.
     if (profile && !profile.is_owner) {
         return <Navigate to="/profile" replace />
     }
@@ -329,8 +329,8 @@ export default function ManagerPage() {
                     <ShieldAlert className="w-8 h-8" />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">관리자 프로필</h1>
-                    <p className="text-gray-500 mt-1 md:mt-2 text-sm">최고 관리자(Owner) 전용 시스템 전역 설정 공간입니다.</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">매니저 프로필</h1>
+                    <p className="text-gray-500 mt-1 md:mt-2 text-sm">최고 매니저(Owner) 전용 시스템 전역 설정 공간입니다.</p>
                 </div>
             </header>
 
@@ -344,12 +344,12 @@ export default function ManagerPage() {
                                 placeholder="예: Re:무브 체형교정"
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
-                        <Field label="관리자 이름" hint="안내 문자의 {담당자} 변수에 들어갈 내용입니다.">
+                        <Field label="매니저 이름" hint="안내 문자의 {담당자} 변수에 들어갈 내용입니다.">
                             <input type="text" value={managerName} onChange={e => setManagerName(e.target.value)}
                                 placeholder="예: 홍길동"
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
-                        <Field label="관리자 연락처" hint="안내 문자의 {연락처} 변수에 들어갈 내용입니다.">
+                        <Field label="매니저 연락처" hint="안내 문자의 {연락처} 변수에 들어갈 내용입니다.">
                             <input type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)}
                                 placeholder="예: 02-1234-5678"
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />

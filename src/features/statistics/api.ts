@@ -39,7 +39,7 @@ export const fetchStats = async (
             return Math.floor(a.membership.amount_paid / a.membership.total_sessions)
         }
 
-        // 2. 관리자 프로필 기본 단가 적용 (Duration + SessionType 기반)
+        // 2. 매니저 프로필 기본 단가 적용 (Duration + SessionType 기반)
         const dur = differenceInMinutes(parseISO(a.end_time), parseISO(a.start_time))
         const bucket = normalizeDuration(dur)
         const sType = a.session_type || 'normal'

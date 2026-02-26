@@ -65,7 +65,7 @@ export default function ProfilePage() {
                             placeholder="이름을 입력하세요"
                             className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                     </Field>
-                    <Field label="연락처" hint="관리자에게 표시되는 개인 연락처입니다.">
+                    <Field label="연락처" hint="매니저에게 표시되는 개인 연락처입니다.">
                         <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                             placeholder="010-0000-0000"
                             className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />

@@ -116,7 +116,7 @@ export default function WeekView() {
             if (myProfile) {
                 setselectedInstructorIds([myProfile.id])
             } else {
-                // 본인이 없다면 (관리자 등) 전체 선택
+                // 본인이 없다면 (매니저 등) 전체 선택
                 setselectedInstructorIds(profiles.map((p: { id: string }) => p.id))
             }
         }

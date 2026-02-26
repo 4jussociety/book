@@ -65,7 +65,7 @@ export default function LoginPage() {
                 if (authError.message.includes('Invalid login credentials')) {
                     setError('아이디 또는 비밀번호가 올바르지 않습니다.')
                 } else {
-                    setError('로그인 중 문제가 발생했습니다. 관리자에게 문의해주세요.')
+                    setError('로그인 중 문제가 발생했습니다. 매니저에게 문의해주세요.')
                 }
             }
         } catch (err) {
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
-                            {activeTab === 'member' ? '이메일' : '관리자 아이디'}
+                            {activeTab === 'member' ? '이메일' : '매니저 아이디'}
                         </label>
                         <div className="relative group">
                             <input
@@ -159,13 +159,13 @@ export default function LoginPage() {
                         {isSubmitting ? (
                             <><Loader2 className="w-5 h-5 animate-spin" /> 확인 중...</>
                         ) : (
-                            activeTab === 'member' ? '직원으로 로그인' : '관리자로 로그인'
+                            activeTab === 'member' ? '직원으로 로그인' : '매니저로 로그인'
                         )}
                     </button>
 
                     {activeTab === 'member' && (
                         <p className="text-center text-xs text-gray-400 mt-6 font-medium">
-                            안내: 관리자(센터장)에게 발급받은 이메일로 로그인하세요.
+                            안내: 매니저(센터장)에게 발급받은 이메일로 로그인하세요.
                         </p>
                     )}
                 </form>

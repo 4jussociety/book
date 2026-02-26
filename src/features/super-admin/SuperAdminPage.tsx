@@ -219,7 +219,7 @@ export default function SuperAdminPage() {
                                         <div className="flex items-center gap-2 md:gap-3 p-2">
                                             <div className="text-right hidden sm:block">
                                                 <div className="text-sm font-bold text-gray-900 leading-none">4jussociety</div>
-                                                <div className="text-[10px] font-bold text-blue-500 mt-1 uppercase tracking-wider bg-blue-50 px-1 rounded inline-block">관리자</div>
+                                                <div className="text-[10px] font-bold text-blue-500 mt-1 uppercase tracking-wider bg-blue-50 px-1 rounded inline-block">매니저</div>
                                             </div>
                                             <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
