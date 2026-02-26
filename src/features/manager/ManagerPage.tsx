@@ -329,8 +329,8 @@ export default function ManagerPage() {
                     <ShieldAlert className="w-8 h-8" />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">매니저 프로필</h1>
-                    <p className="text-gray-500 mt-1 md:mt-2 text-sm">최고 매니저(Owner) 전용 시스템 전역 설정 공간입니다.</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">센터 설정</h1>
+                    <p className="text-gray-500 mt-1 md:mt-2 text-sm">최고 매니저(Owner) 전용 센터 운영 설정 공간입니다.</p>
                 </div>
             </header>
 

@@ -96,7 +96,7 @@ export default function GNB() {
                                     <div className="py-2">
                                         {profile?.is_owner ? (
                                             <>
-                                                <Link onClick={() => setMobileMenuOpen(false)} to="/settings" className="block text-xl font-bold text-gray-500 hover:text-gray-900 transition-colors">시스템 관리</Link>
+                                                <Link onClick={() => setProfileMenuOpen(false)} to="/settings" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">센터 설정</Link>
                                                 <Link onClick={() => setProfileMenuOpen(false)} to="/members" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">멤버 관리</Link>
                                             </>
                                         ) : (

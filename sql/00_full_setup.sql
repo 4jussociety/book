@@ -343,7 +343,7 @@ CREATE POLICY "System access for appointments" ON appointments FOR ALL USING (
     is_system_owner(system_id) OR is_system_member(system_id)
 );
 
--- Policies: Pricing Settings (관리자: 전체, 선생님: 조회, 스태프: 접근 불가)
+-- Policies: Pricing Settings (매니저: 전체, 선생님: 조회, 스태프: 접근 불가)
 DROP POLICY IF EXISTS "pricing_owner_all" ON pricing_settings;
 CREATE POLICY "pricing_owner_all" ON pricing_settings FOR ALL
   USING (has_role(system_id, ARRAY['owner']));
@@ -378,7 +378,7 @@ DROP POLICY IF EXISTS "memberships_delete" ON client_memberships;
 CREATE POLICY "memberships_delete" ON client_memberships FOR DELETE 
   USING (has_role(system_id, ARRAY['owner', 'staff', 'instructor']));
 
--- Policies: Membership Packages (관리자: 전체, 멤버: 읽기 전용)
+-- Policies: Membership Packages (매니저: 전체, 멤버: 읽기 전용)
 DROP POLICY IF EXISTS "packages_view" ON membership_packages;
 CREATE POLICY "packages_view" ON membership_packages FOR SELECT
   USING (is_system_member(system_id));
