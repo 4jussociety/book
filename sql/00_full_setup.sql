@@ -101,6 +101,23 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- ==========================================
+-- (11) storage: 광고 이미지 저장을 위한 버킷 생성
+-- ==========================================
+-- 버킷 생성 (이미 존재하면 무시됨)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('global-ads', 'global-ads', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 누구나 읽기 가능 정책
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'global-ads');
+
+-- 인증된 사용자(매니저)만 업로드/수정/삭제 가능 정책 
+DROP POLICY IF EXISTS "Manager Manage Assets" ON storage.objects;
+CREATE POLICY "Manager Manage Assets" ON storage.objects FOR ALL 
+USING (bucket_id = 'global-ads' AND auth.role() = 'authenticated');
+
+-- ==========================================
 -- 2. 인덱스 생성
 -- ==========================================
 DO $$

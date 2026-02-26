@@ -431,14 +431,62 @@ export default function SuperAdminPage() {
                                             </div>
                                             <div className="p-4 space-y-4">
                                                 <div>
-                                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">노출 이미지 URL *</label>
-                                                    <input
-                                                        type="text"
-                                                        value={ad.image_url}
-                                                        onChange={e => handleChange(ad.id, 'image_url', e.target.value)}
-                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm placeholder:text-gray-300 placeholder:font-normal"
-                                                        placeholder="https://example.com/ad-banner.jpg"
-                                                    />
+                                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">노출 이미지 업로드 *</label>
+
+                                                    {ad.image_url ? (
+                                                        <div className="relative w-full aspect-[4/1] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 group mb-2">
+                                                            <img src={ad.image_url} alt="배너 스크림샷" className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <button
+                                                                    onClick={() => handleChange(ad.id, 'image_url', '')}
+                                                                    className="px-3 py-1.5 bg-white text-red-600 font-bold text-xs rounded-lg shadow-sm hover:bg-red-50"
+                                                                >
+                                                                    재업로드
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                                <ImageIcon className="w-6 h-6 mb-2 text-gray-400" />
+                                                                <p className="text-xs text-gray-500 font-medium whitespace-nowrap"><span className="font-bold text-indigo-600">클릭하여 이미지 파일 업로드</span></p>
+                                                            </div>
+                                                            <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+
+                                                                try {
+                                                                    setIsSaving(true);
+                                                                    // 1. Storage 버킷에 업로드 (파일명 충돌 방지를 위해 timestamp + random 문자열 사용)
+                                                                    const fileExt = file.name.split('.').pop();
+                                                                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+                                                                    const filePath = `banners/${fileName}`;
+
+                                                                    const { error: uploadError } = await supabase.storage
+                                                                        .from('global-ads')
+                                                                        .upload(filePath, file);
+
+                                                                    if (uploadError) throw uploadError;
+
+                                                                    // 2. Public URL 가져오기
+                                                                    const { data: publicUrlData } = supabase.storage
+                                                                        .from('global-ads')
+                                                                        .getPublicUrl(filePath);
+
+                                                                    // 3. state 업데이트
+                                                                    handleChange(ad.id, 'image_url', publicUrlData.publicUrl);
+
+                                                                } catch (error) {
+                                                                    console.error('Upload error:', error);
+                                                                    alert('이미지 업로드에 실패했습니다. 관리자에게 문의하세요.');
+                                                                } finally {
+                                                                    setIsSaving(false);
+                                                                    // input 초기화 (같은 파일을 다시 선택할 수 있도록)
+                                                                    e.target.value = '';
+                                                                }
+                                                            }} />
+                                                        </label>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">클릭 시 이동할 링크 URL (선택)</label>
