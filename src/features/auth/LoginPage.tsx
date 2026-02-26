@@ -19,7 +19,7 @@ export default function LoginPage() {
     const { session } = useAuth()
     const navigate = useNavigate()
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<'admin' | 'member'>('admin')
+    const [activeTab, setActiveTab] = useState<'manager' | 'member'>('manager')
 
     useEffect(() => {
         if (session) {
@@ -48,10 +48,9 @@ export default function LoginPage() {
         // 이메일 조합 로직
         let emailToLogin = data.id.trim()
 
-        if (activeTab === 'admin') {
-            // 관리자 탭: 아이디만 입력하든 전체 이메일을 입력하든 @ 앞부분만 추출
-            const adminId = emailToLogin.split('@')[0]
-            emailToLogin = `${adminId}@thept.co.kr`
+        if (activeTab === 'manager') {
+            const managerId = emailToLogin.split('@')[0]
+            emailToLogin = `${managerId}@thept.co.kr`
         }
         // 직원(멤버) 탭: 입력값 그대로 사용 (실제 이메일)
 
@@ -94,10 +93,10 @@ export default function LoginPage() {
                     </button>
                     <button
                         type="button"
-                        className={`flex-1 py-2.5 text-sm font-bold transition-all rounded-lg ${activeTab === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('admin')}
+                        className={`flex-1 py-2.5 text-sm font-bold transition-all rounded-lg ${activeTab === 'manager' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('manager')}
                     >
-                        관리자(센터장)
+                        원장님 로그인
                     </button>
                 </div>
 
@@ -122,7 +121,7 @@ export default function LoginPage() {
                                 autoCapitalize="none"
                                 autoComplete="username"
                             />
-                            {activeTab === 'admin' && (
+                            {activeTab === 'manager' && (
                                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                                     <span className="text-gray-400 font-medium text-sm sm:text-base">@thept.co.kr</span>
                                 </div>

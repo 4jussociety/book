@@ -186,3 +186,27 @@ export async function updateClient(id: string, updates: Partial<Client>) {
     if (error) throw error
     return data as Client
 }
+
+export async function getGlobalAds() {
+    const { data, error } = await supabase
+        .from('global_ads')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+}
+
+// 명시적인 슬롯 ID로 가져오는 편의용 함수
+export async function getGlobalAdBySlot(slotId: string) {
+    const { data, error } = await supabase
+        .from('global_ads')
+        .select('*')
+        .eq('slot_id', slotId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+    if (error) throw error
+    return data
+}

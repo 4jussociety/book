@@ -75,41 +75,44 @@ export default function SystemSetupModal() {
             }
 
             // 3. 관리자 본인을 선생님(instructor)으로 자동 발급
-            // 이메일: {adminId}@thept.shop (관리자 도메인 @thept.co.kr과 구분)
-            try {
-                const adminId = user.email?.split('@')[0] || 'admin'
-                const instructorEmail = `${adminId}@thept.shop`
-                const instructorName = user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'
+            // 이름: {managerId}@thept.shop (초기 @thept.co.kr가 아님)
+            // (나중에 관리자 프로필에서 이름을 바꿀 수 있지만, 초기 생성용)
+            if (user) {
+                try {
+                    const managerId = user.email?.split('@')[0] || 'manager'
+                    const instructorEmail = `${managerId}@thept.shop`
+                    const instructorName = user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'
 
-                const { data: sessionData } = await supabase.auth.getSession()
-                if (sessionData.session) {
-                    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-                    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+                    const { data: sessionData } = await supabase.auth.getSession()
+                    if (sessionData.session) {
+                        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+                        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-                    const response = await fetch(`${supabaseUrl}/functions/v1/create-member`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${sessionData.session.access_token}`,
-                            'apikey': supabaseAnonKey
-                        },
-                        body: JSON.stringify({
-                            systemId: system.id,
-                            email: instructorEmail,
-                            password: '000000',
-                            name: instructorName,
-                            role: 'instructor'
+                        const response = await fetch(`${supabaseUrl}/functions/v1/create-member`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${sessionData.session.access_token}`,
+                                'apikey': supabaseAnonKey
+                            },
+                            body: JSON.stringify({
+                                systemId: system.id,
+                                email: instructorEmail,
+                                password: '000000',
+                                name: instructorName,
+                                role: 'instructor'
+                            })
                         })
-                    })
 
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => null)
-                        console.warn('선생님 자동 발급 실패 (시스템 생성은 정상):', errData?.error || response.status)
+                        if (!response.ok) {
+                            const errData = await response.json().catch(() => null)
+                            console.warn('선생님 자동 발급 실패 (시스템 생성은 정상):', errData?.error || response.status)
+                        }
                     }
+                } catch (autoMemberErr) {
+                    // 선생님 자동 발급 실패해도 시스템 생성 자체는 성공 처리
+                    console.warn('선생님 자동 발급 중 예외 (시스템 생성은 정상):', autoMemberErr)
                 }
-            } catch (autoMemberErr) {
-                // 선생님 자동 발급 실패해도 시스템 생성 자체는 성공 처리
-                console.warn('선생님 자동 발급 중 예외 (시스템 생성은 정상):', autoMemberErr)
             }
 
             setIsSystemCreated(true)

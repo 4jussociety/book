@@ -35,16 +35,16 @@ CREATE TABLE IF NOT EXISTS systems (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     organization_name TEXT,
     contact_number TEXT,
-    admin_name TEXT,
-    last_client_no INT DEFAULT 0,
+    manager_name TEXT,
+    last_client_no INTEGER DEFAULT 0 NOT NULL,
     option1_name TEXT DEFAULT NULL,
     option2_name TEXT DEFAULT NULL,
     option3_name TEXT DEFAULT NULL
 );
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS organization_name TEXT;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS contact_number TEXT;
-ALTER TABLE systems ADD COLUMN IF NOT EXISTS admin_name TEXT;
-ALTER TABLE systems ADD COLUMN IF NOT EXISTS last_client_no INT DEFAULT 0;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS manager_name TEXT;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS last_client_no INTEGER DEFAULT 0 NOT NULL;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option1_name TEXT DEFAULT NULL;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option2_name TEXT DEFAULT NULL;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option3_name TEXT DEFAULT NULL;
@@ -71,15 +71,29 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS incentive_percentage_opt3 NUMERIC(
 -- 4. System Members Table (소속 및 역할 관리)
 CREATE TABLE IF NOT EXISTS system_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    system_id UUID REFERENCES systems(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    status access_status DEFAULT 'approved',
-    role TEXT CHECK (role IN ('owner', 'instructor', 'staff')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    system_id UUID NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('owner', 'instructor', 'staff')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(system_id, user_id)
 );
-ALTER TABLE system_members ADD COLUMN IF NOT EXISTS role TEXT CHECK (role IN ('owner', 'instructor', 'staff'));
 
+-- ==========================================
+-- (10) global_ads: 플랫폼 운영자 전용 광고 관리
+-- ==========================================
+CREATE TABLE IF NOT EXISTS global_ads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slot_id TEXT NOT NULL UNIQUE,
+    image_url TEXT NOT NULL,
+    link_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==========================================
+-- 2. 인덱스 생성
+-- ==========================================
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_system_members_profiles') THEN
@@ -278,6 +292,11 @@ DROP POLICY IF EXISTS "Owners can update member profiles" ON profiles;
 CREATE POLICY "Owners can update member profiles" ON profiles FOR UPDATE USING (
     id IN (SELECT user_id FROM system_members WHERE system_id IN (SELECT id FROM systems WHERE owner_id = auth.uid()))
 );
+
+-- global_ads Policies
+ALTER TABLE global_ads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view global_ads" ON global_ads FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can manage global_ads" ON global_ads FOR ALL USING (auth.role() = 'authenticated');
 
 -- Policies: System Members (강화됨)
 DROP POLICY IF EXISTS "Owner manage system requests" ON system_members;

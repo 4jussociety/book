@@ -13,11 +13,11 @@ export type Profile = {
 
     // DB에는 없지만 Context에서 조인/주입되어 사용되는 런타임 속성
     system_id?: string | null
-    role?: 'owner' | 'staff' | 'instructor' | 'pending_admin'
+    role?: 'owner' | 'staff' | 'instructor' | 'pending_manager'
     is_owner?: boolean
     organization_name?: string
     contact_number?: string
-    admin_name?: string
+    manager_name?: string
     incentive_percentage?: number // 0~100
     incentive_percentage_opt1?: number
     incentive_percentage_opt2?: number
@@ -38,7 +38,7 @@ export type System = {
     created_at: string
     organization_name: string | null
     contact_number: string | null
-    admin_name: string | null
+    manager_name: string | null
     last_client_no: number
     option1_name?: string | null
     option2_name?: string | null

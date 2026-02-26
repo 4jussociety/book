@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // 3. Fetch system details to inject settings into profile
                     const { data: systemData, error: sysError } = await supabase
                         .from('systems')
-                        .select('owner_id, organization_name, contact_number, admin_name, option1_name, option2_name, option3_name')
+                        .select('owner_id, organization_name, contact_number, manager_name, option1_name, option2_name, option3_name')
                         .eq('id', memberData.system_id)
                         .maybeSingle()
 
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         combinedProfile.is_owner = systemData.owner_id === userId
                         combinedProfile.organization_name = systemData.organization_name || undefined
                         combinedProfile.contact_number = systemData.contact_number || undefined
-                        combinedProfile.admin_name = systemData.admin_name || undefined
+                        combinedProfile.manager_name = systemData.manager_name || undefined
                         combinedProfile.option1_name = systemData.option1_name || undefined
                         combinedProfile.option2_name = systemData.option2_name || undefined
                         combinedProfile.option3_name = systemData.option3_name || undefined
@@ -110,8 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // system_members에서 승인된 멤버라면 → 정상 프로필로 세팅
                 if (memberData?.status === 'approved' && combinedProfile.role) {
                     setProfile(combinedProfile)
-                } else if (userEmail?.endsWith('@thept.co.kr')) {
-                    if (!combinedProfile.role) combinedProfile.role = 'pending_admin'
+                    // 소속은 시스템에 되어있고 owner인데, role 지정이 안된 경우는 초기 셋팅 필요 (pending_manager)
+                    if (!combinedProfile.role) combinedProfile.role = 'pending_manager'
                     setProfile(combinedProfile)
                 } else {
                     setProfile(null)
@@ -119,8 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
 
-            if (userEmail?.endsWith('@thept.co.kr') && !combinedProfile.role) {
-                combinedProfile.role = 'pending_admin'
+            if (userEmail?.endsWith('@thept.co.kr')) { // 시스템 연결 전인 상태
+                combinedProfile.role = 'pending_manager'
             }
 
             setProfile(combinedProfile)

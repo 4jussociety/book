@@ -4,7 +4,7 @@ import 'react-day-picker/style.css' // Ensure styles are available
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, differenceInMinutes, addMinutes } from 'date-fns'
 import { getNow, getStartOfWeekKST, addDaysKST, isSameDayKST, formatKST } from '@/lib/dateUtils'
-import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments, useClientAppointments } from './useCalendar'
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, useProfiles, useMonthlyAppointments, useClientAppointments, useGlobalAds } from './useCalendar'
 import { getDisplayHourRange } from '../../lib/useOperatingHours'
 import { useAutoCompleteAppointments } from './useAutoCompleteAppointments'
 import { ChevronLeft, ChevronRight, Plus, MessageSquare } from 'lucide-react'
@@ -98,6 +98,11 @@ export default function WeekView() {
     useAutoCompleteAppointments(appointments)
     const updateMutation = useUpdateAppointment()
     const { data: clientHistory } = useClientAppointments(selectedAppointment?.client?.id)
+
+    const { data: ads = [] } = useGlobalAds()
+    const activeAds = ads
+        .filter(ad => ad.is_active && ad.slot_id === 'instructor_bottom')
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 
     // currentDate가 변경되면 미니 캘린더의 기준 월도 업데이트
     useEffect(() => {
@@ -551,6 +556,18 @@ export default function WeekView() {
                         ))}
                     </div>
                 </div>
+
+                {/* 글로벌 광고 배너 (사이드바 하단 스택) */}
+                {activeAds.length > 0 && (
+                    <div className="mt-6 px-4 flex flex-col gap-3">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">Sponsors</h3>
+                        {activeAds.map(ad => (
+                            <a key={ad.id} href={ad.link_url || '#'} target={ad.link_url ? "_blank" : "_self"} rel="noreferrer" className="w-full block rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-gray-50 shadow-sm border border-gray-100 flex items-center justify-center" title="스폰서 광고">
+                                <img src={ad.image_url} alt="Global Ad" className="w-full h-auto object-cover" onError={e => e.currentTarget.style.display = 'none'} />
+                            </a>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* ── MAIN CONTENT (Header + Grid) ── */}
@@ -692,6 +709,8 @@ export default function WeekView() {
                                                         <div className="h-6 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 text-[10px] font-black text-gray-500 sticky z-40 top-12">
                                                             {instructor.full_name || instructor.name}
                                                         </div>
+
+
 
                                                         {/* The actual time grid - mousemove tracked here */}
                                                         <div

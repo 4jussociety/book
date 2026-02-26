@@ -31,7 +31,7 @@ export default function MemberManagement() {
     const [members, setMembers] = useState<GuestRequest[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [processingId, setProcessingId] = useState<string | null>(null)
-    const [systemAdminName, setSystemAdminName] = useState<string>('')
+    const [systemManagerName, setSystemManagerName] = useState<string>('')
 
     // 새 멤버 모달 상태
     const [showCreateModal, setShowCreateModal] = useState(false)
@@ -56,13 +56,14 @@ export default function MemberManagement() {
         if (!profile?.system_id) return
         setIsLoading(true)
         try {
-            // systems 테이블에서 admin_name 조회
+            // systems 테이블의 manager_name 조회
             const { data: systemData } = await supabase
                 .from('systems')
-                .select('admin_name')
+                .select('manager_name')
                 .eq('id', profile.system_id)
                 .single()
-            if (systemData?.admin_name) setSystemAdminName(systemData.admin_name)
+
+            if (systemData?.manager_name) setSystemManagerName(systemData.manager_name)
 
             const { data, error } = await supabase
                 .from('system_members')
@@ -398,7 +399,7 @@ export default function MemberManagement() {
                                                         ) : (
                                                             <span className="font-bold text-gray-900 block group-hover:text-blue-700 transition-colors">
                                                                 {member.role === 'owner'
-                                                                    ? (systemAdminName || member.profiles?.full_name || '이름 없음')
+                                                                    ? (systemManagerName || member.profiles?.full_name || '이름 없음')
                                                                     : (member.profiles?.full_name || '이름 없음')}
                                                             </span>
                                                         )}

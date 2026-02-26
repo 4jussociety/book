@@ -1,5 +1,5 @@
 ﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAppointments, createAppointment, getClients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments, updateClient, getAppointmentsByClient, getMembershipPackages } from './api'
+import { getAppointments, createAppointment, getClients, getProfiles, updateAppointment, deleteAppointment, updateProfile, getMonthlyAppointments, updateClient, getAppointmentsByClient, getMembershipPackages, getGlobalAds } from './api'
 import { createClient } from '@/features/clients/api'
 
 /** 고객 목록 조회 훅 */
@@ -19,7 +19,16 @@ export function useMembershipPackages(systemId?: string | null) {
     })
 }
 
-/** 월간 예약 목록 조회 훅 (미니 달력용) */
+/** 활성화된 전역 광고 조회 */
+export function useGlobalAds() {
+    return useQuery({
+        queryKey: ['globalAds'],
+        queryFn: () => getGlobalAds(),
+        staleTime: 5 * 60 * 1000 // 5분 캐싱
+    })
+}
+
+/** 월간 예약 조회 (월간 달력용) */
 
 
 /** 고객 정보 수정 훅 */

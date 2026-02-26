@@ -1,4 +1,4 @@
-// AdminPage: 최고 관리자(Owner) 전용 시스템 설정 및 관리 대시보드
+// ManagerPage: 시스템 설정 및 관리 대시보드
 // 가격 설정, 예약 안내 문자 템플릿, 멤버 관리 연동, 시스템 전체 초기화 등을 담당
 
 import { useState, useEffect } from 'react'
@@ -26,12 +26,12 @@ type PackageItem = {
 }
 
 
-export default function AdminPage() {
+export default function ManagerPage() {
     const { user, profile, refreshProfile } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [organizationName, setOrganizationName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
-    const [adminName, setAdminName] = useState('')
+    const [managerName, setManagerName] = useState('')
     const [option1Name, setOption1Name] = useState('')
     const [option2Name, setOption2Name] = useState('')
     const [option3Name, setOption3Name] = useState('')
@@ -46,7 +46,7 @@ export default function AdminPage() {
         if (profile?.is_owner) {
             setOrganizationName(profile.organization_name || '')
             setContactNumber(profile.contact_number || '')
-            setAdminName(profile.admin_name || '')
+            setManagerName(profile.manager_name || '')
             setOption1Name(profile.option1_name || '')
             setOption2Name(profile.option2_name || '')
             setOption3Name(profile.option3_name || '')
@@ -99,7 +99,7 @@ export default function AdminPage() {
                 .update({
                     organization_name: organizationName,
                     contact_number: contactNumber,
-                    admin_name: adminName,
+                    manager_name: managerName,
                 })
                 .eq('id', profile.system_id)
 
@@ -345,7 +345,7 @@ export default function AdminPage() {
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
                         <Field label="관리자 이름" hint="안내 문자의 {담당자} 변수에 들어갈 내용입니다.">
-                            <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)}
+                            <input type="text" value={managerName} onChange={e => setManagerName(e.target.value)}
                                 placeholder="예: 홍길동"
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
@@ -389,7 +389,7 @@ export default function AdminPage() {
                                 .replace('{고객}', '김철수')
                                 .replace('{일시}', '2024년 3월 15일(금) 14:00')
                                 .replace('{장소}', organizationName || 'Re:무브 체형교정')
-                                .replace('{담당자}', adminName || profile.full_name || '홍길동')
+                                .replace('{담당자}', managerName || profile.full_name || '홍길동')
                                 .replace('{연락처}', contactNumber || '02-123-4567')
                             }
                         </pre>

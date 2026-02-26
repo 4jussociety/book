@@ -96,7 +96,7 @@ export default function GNB() {
                                     <div className="py-2">
                                         {profile?.is_owner ? (
                                             <>
-                                                <Link onClick={() => setProfileMenuOpen(false)} to="/admin" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">관리자 프로필</Link>
+                                                <Link onClick={() => setMobileMenuOpen(false)} to="/settings" className="block text-xl font-bold text-gray-500 hover:text-gray-900 transition-colors">시스템 관리</Link>
                                                 <Link onClick={() => setProfileMenuOpen(false)} to="/members" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">멤버 관리</Link>
                                             </>
                                         ) : (
@@ -176,7 +176,7 @@ export default function GNB() {
                     </a>
                     {/* 프로필 탭 */}
                     <NavLink
-                        to={profile?.is_owner ? "/admin" : "/profile"}
+                        to={profile?.is_owner ? "/settings" : "/profile"}
                         className={({ isActive }) =>
                             clsx(
                                 'flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-colors',

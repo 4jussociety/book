@@ -9,7 +9,8 @@ import ClientList from './features/clients/ClientList'
 import StatisticsPage from './features/statistics/StatisticsPage'
 import MemberManagement from './features/systems/MemberManagement'
 import ProfilePage from './features/profile/ProfilePage'
-import AdminPage from './features/admin/AdminPage'
+import ManagerPage from './features/manager/ManagerPage'
+import SuperAdminPage from './features/super-admin/SuperAdminPage'
 
 import RootLayout from './components/layout/RootLayout'
 
@@ -34,10 +35,17 @@ function App() {
                 <Route element={<RequireOwner />}>
                   <Route path="/statistics" element={<StatisticsPage />} />
                   <Route path="/members" element={<MemberManagement />} />
-                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/settings" element={<ManagerPage />} />
                 </Route>
               </Route>
             </Route>
+
+            {/* Super Admin 전용 (Layout 없이 독립적이거나 RootLayout 사용할 수 있음) */}
+            <Route element={<RequireAuth />}>
+              <Route path="/super-admin" element={<SuperAdminPage />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
