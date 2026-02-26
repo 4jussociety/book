@@ -321,7 +321,9 @@ CREATE POLICY "Owners can update member profiles" ON profiles FOR UPDATE USING (
 
 -- global_ads Policies
 ALTER TABLE global_ads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view global_ads" ON global_ads;
 CREATE POLICY "Anyone can view global_ads" ON global_ads FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can manage global_ads" ON global_ads;
 CREATE POLICY "Authenticated users can manage global_ads" ON global_ads FOR ALL USING (auth.role() = 'authenticated');
 
 -- Policies: System Members (강화됨)
