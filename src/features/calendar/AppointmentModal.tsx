@@ -438,18 +438,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                     <div className="text-sm font-black text-gray-900 truncate leading-none">
                                                         {selectedClient ? selectedClient.name : '신규'}
                                                     </div>
-                                                    <div className="flex items-center gap-1.5">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
                                                         {selectedClient && <span className="text-[10px] text-gray-500 font-medium truncate">{selectedClient.is_manual_no ? '' : '#'}{selectedClient.client_no}</span>}
-                                                        {editingAppointment?.visit_count && (
-                                                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
-                                                                {editingAppointment.visit_count}회차
-                                                            </span>
-                                                        )}
-                                                        {editingAppointment?.membership && (
-                                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                                                🎟️ {editingAppointment.membership.total_sessions - editingAppointment.membership.used_sessions}/{editingAppointment.membership.total_sessions}
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </div>
                                                 {!editingAppointment && (
@@ -549,21 +539,6 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 </div>
                                             )}
 
-                                            {/* 수업 종류(Session Type) 선택 */}
-                                            {eventType === 'APPOINTMENT' && (
-                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                                    <label className="block text-[10px] font-black text-blue-600 mb-1 ml-1 flex items-center gap-1">🏷️ 수업 종류</label>
-                                                    <select
-                                                        {...register('session_type')}
-                                                        className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
-                                                    >
-                                                        <option value="normal">매뉴얼PT</option>
-                                                        {myProfile?.option1_name && <option value="option1">{myProfile.option1_name}</option>}
-                                                        {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
-                                                        {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
-                                                    </select>
-                                                </div>
-                                            )}
                                         </div>
                                     ) : (
                                         <input
@@ -576,15 +551,33 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                 </div>
 
                                 {/* Col 2 */}
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">담당 선생님</label>
-                                    <select
-                                        {...register('instructor_id')}
-                                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold cursor-pointer transition-all text-xs h-[42px]"
-                                    >
-                                        <option value="">선택</option>
-                                        {profiles?.map(p => <option key={p.id} value={p.id}>{p.full_name || p.name}</option>)}
-                                    </select>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">담당 선생님</label>
+                                        <select
+                                            {...register('instructor_id')}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold cursor-pointer transition-all text-xs h-[42px]"
+                                        >
+                                            <option value="">선택</option>
+                                            {profiles?.map(p => <option key={p.id} value={p.id}>{p.full_name || p.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* 수업 종류(Session Type) 선택 */}
+                                    {eventType === 'APPOINTMENT' && (
+                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <label className="block text-[10px] font-black text-blue-600 mb-1 ml-1 flex items-center gap-1">🏷️ 수업 종류</label>
+                                            <select
+                                                {...register('session_type')}
+                                                className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
+                                            >
+                                                <option value="normal">매뉴얼PT</option>
+                                                {myProfile?.option1_name && <option value="option1">{myProfile.option1_name}</option>}
+                                                {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
+                                                {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

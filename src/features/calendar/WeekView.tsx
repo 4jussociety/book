@@ -135,7 +135,11 @@ export default function WeekView() {
 
     const handlePrevWeek = () => setCurrentDate(addDaysKST(currentDate, -7))
     const handleNextWeek = () => setCurrentDate(addDaysKST(currentDate, 7))
-    const handleToday = () => setCurrentDate(getNow())
+    const handleToday = () => {
+        const today = getNow()
+        setCurrentDate(today)
+        setMiniCalendarMonth(today)
+    }
 
     // ──────────────────────────────
     // ──────────────────────────────
@@ -455,11 +459,17 @@ export default function WeekView() {
                     <DayPicker
                         mode="single"
                         selected={currentDate}
-                        onSelect={(date) => date && setCurrentDate(date)}
+                        month={miniCalendarMonth}
+                        onMonthChange={setMiniCalendarMonth}
+                        onSelect={(date) => {
+                            if (date) {
+                                setCurrentDate(date)
+                                setMiniCalendarMonth(date) // 클릭한 날짜의 월로 미니 달력 동기화
+                            }
+                        }}
                         locale={ko}
                         showOutsideDays
                         fixedWeeks
-                        onMonthChange={setMiniCalendarMonth}
                         components={{
                             Chevron: ({ orientation }) => {
                                 if (orientation === 'left') return <ChevronLeft className="w-4 h-4" />
@@ -1001,6 +1011,16 @@ export default function WeekView() {
                                     <div className="flex items-center gap-3 text-sm">
                                         <span className="text-gray-400 w-16 text-right font-bold">선생님</span>
                                         <span className="font-bold text-gray-700">{selectedAppointment.instructor.full_name}</span>
+                                    </div>
+                                )}
+
+                                {selectedAppointment.session_type && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <span className="text-gray-400 w-16 text-right font-bold">수업</span>
+                                        <span className="font-bold text-blue-700">
+                                            {selectedAppointment.session_type === 'normal' ? '매뉴얼PT' :
+                                                (profile?.[`${selectedAppointment.session_type}_name` as keyof typeof profile] as string) || '수업'}
+                                        </span>
                                     </div>
                                 )}
 
