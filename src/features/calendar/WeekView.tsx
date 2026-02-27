@@ -1018,7 +1018,7 @@ export default function WeekView() {
                                     <div className="flex items-center gap-3 text-sm">
                                         <span className="text-gray-400 w-16 text-right font-bold">수업</span>
                                         <span className="font-bold text-blue-700">
-                                            {selectedAppointment.session_type === 'normal' ? '매뉴얼PT' :
+                                            {selectedAppointment.session_type === 'normal' ? (profile?.default_session_name || '매뉴얼PT') :
                                                 (profile?.[`${selectedAppointment.session_type}_name` as keyof typeof profile] as string) || '수업'}
                                         </span>
                                     </div>

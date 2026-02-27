@@ -16,8 +16,17 @@ const clientSchema = z.object({
     name: z.string().min(1, '이름을 입력해주세요.'),
     client_no: z.string().optional(),
     gender: z.enum(['M', 'F']),
-    birth_date: z.string().optional(),
-    phone: z.string().optional(),
+    birth_date: z.string().length(8, '생년월일 8자리를 입력해주세요. (예: 19900101)').refine((val) => {
+        const year = parseInt(val.substring(0, 4), 10);
+        const month = parseInt(val.substring(4, 6), 10);
+        const day = parseInt(val.substring(6, 8), 10);
+        const currentYear = new Date().getFullYear();
+        if (year < 1900 || year > currentYear) return false;
+        if (month < 1 || month > 12) return false;
+        if (day < 1 || day > 31) return false;
+        return true;
+    }, { message: '유효한 생년월일을 입력해주세요. (예: 19900101)' }),
+    phone: z.string().min(1, '연락처를 입력해주세요.'),
 
 })
 
@@ -63,7 +72,7 @@ export default function ClientForm({ initialData, defaultName, onSuccess, onCanc
                 name: initialData.name,
                 client_no: initialData.client_no?.toString() || '',
                 gender: normalizedGender,
-                birth_date: initialData.birth_date ? initialData.birth_date.substring(0, 4) : '',
+                birth_date: initialData.birth_date ? initialData.birth_date.replace(/-/g, '') : '',
                 phone: initialData.phone || '',
 
             })
@@ -81,10 +90,18 @@ export default function ClientForm({ initialData, defaultName, onSuccess, onCanc
 
     const mutation = useMutation({
         mutationFn: async (data: ClientFormInputs) => {
-            // 생년(4자리)을 DB DATE 타입에 맞게 변환 (YYYY-01-01)
+            // 생년월일(8자리)을 DB DATE 타입에 맞게 변환 (YYYY-MM-DD)
             let birthDateValue: string | null = null
-            if (data.birth_date && data.birth_date.length === 4) {
-                birthDateValue = `${data.birth_date}-01-01`
+            if (data.birth_date) {
+                if (data.birth_date.length === 8) {
+                    const year = data.birth_date.substring(0, 4)
+                    const month = data.birth_date.substring(4, 6)
+                    const day = data.birth_date.substring(6, 8)
+                    birthDateValue = `${year}-${month}-${day}`
+                } else if (data.birth_date.length === 4) {
+                    // 혹시나 여전히 4자리만 적는 경우 호환성 지원
+                    birthDateValue = `${data.birth_date}-01-01`
+                }
             }
 
 
@@ -182,18 +199,19 @@ export default function ClientForm({ initialData, defaultName, onSuccess, onCanc
                     </div>
                 </div>
                 <div className="col-span-1">
-                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">생년</label>
+                    <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">생년월일</label>
                     <input
                         type="text"
                         {...register('birth_date')}
                         onChange={(e) => {
                             const val = e.target.value.replace(/[^0-9]/g, '')
-                            if (val.length <= 4) setValue('birth_date', val)
+                            if (val.length <= 8) setValue('birth_date', val)
                         }}
-                        placeholder="YYYY (4자리)"
-                        maxLength={4}
+                        placeholder="YYYYMMDD (8자리)"
+                        maxLength={8}
                         className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-sm"
                     />
+                    {errors.birth_date && <p className="text-red-500 text-[10px] ml-1 mt-0.5">{errors.birth_date.message}</p>}
                 </div>
                 <div className="col-span-1">
                     <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">연락처</label>
@@ -203,6 +221,7 @@ export default function ClientForm({ initialData, defaultName, onSuccess, onCanc
                         placeholder="010-1234-5678"
                         className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-sm"
                     />
+                    {errors.phone && <p className="text-red-500 text-[10px] ml-1 mt-0.5">{errors.phone.message}</p>}
                 </div>
             </div>
 

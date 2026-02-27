@@ -571,7 +571,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 {...register('session_type')}
                                                 className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
                                             >
-                                                <option value="normal">매뉴얼PT</option>
+                                                <option value="normal">{myProfile?.default_session_name || '매뉴얼PT'}</option>
                                                 {myProfile?.option1_name && <option value="option1">{myProfile.option1_name}</option>}
                                                 {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
                                                 {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}

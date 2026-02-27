@@ -32,6 +32,7 @@ export default function ManagerPage() {
     const [organizationName, setOrganizationName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
     const [managerName, setManagerName] = useState('')
+    const [defaultSessionName, setDefaultSessionName] = useState('매뉴얼PT')
     const [option1Name, setOption1Name] = useState('')
     const [option2Name, setOption2Name] = useState('')
     const [option3Name, setOption3Name] = useState('')
@@ -47,6 +48,7 @@ export default function ManagerPage() {
             setOrganizationName(profile.organization_name || '')
             setContactNumber(profile.contact_number || '')
             setManagerName(profile.manager_name || '')
+            setDefaultSessionName(profile.default_session_name || '매뉴얼PT')
             setOption1Name(profile.option1_name || '')
             setOption2Name(profile.option2_name || '')
             setOption3Name(profile.option3_name || '')
@@ -145,6 +147,7 @@ export default function ManagerPage() {
             const { error: systemError } = await supabase
                 .from('systems')
                 .update({
+                    default_session_name: defaultSessionName || '매뉴얼PT',
                     option1_name: option1Name || null,
                     option2_name: option2Name || null,
                     option3_name: option3Name || null,
@@ -411,23 +414,25 @@ export default function ManagerPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {/* 매뉴얼PT (이름 고정) */}
+                            {/* 매뉴얼PT (이름 고정에서 변경 가능하게) */}
                             <tr className="hover:bg-green-50/30 transition-colors">
                                 <td className="px-4 py-3">
-                                    <div className="w-full px-3 py-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg text-sm font-bold flex items-center justify-center">
-                                        매뉴얼PT
-                                    </div>
+                                    <input
+                                        type="text" value={defaultSessionName} onChange={e => setDefaultSessionName(e.target.value)}
+                                        placeholder="기본 수업 (예: 매뉴얼PT)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-green-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300"
+                                    />
                                 </td>
                                 {DURATION_BUCKETS.map(d => {
                                     const priceObj = prices.find(p => p.sessionType === 'normal' && p.durationMin === d)
                                     return (
                                         <td key={d} className="px-2 py-3 text-center">
                                             <input
-                                                type="text" inputMode="numeric"
+                                                type="text" inputMode="numeric" disabled={!defaultSessionName.trim()}
                                                 value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
                                                 onChange={e => handlePriceChange('normal', d, e.target.value)}
                                                 placeholder="0"
-                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300 disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100"
                                             />
                                         </td>
                                     )
@@ -556,7 +561,7 @@ export default function ManagerPage() {
                                                 value={pkg.session_type} onChange={e => handleUpdatePackage(index, 'session_type', e.target.value)}
                                                 className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all cursor-pointer"
                                             >
-                                                <option value="normal">매뉴얼PT</option>
+                                                <option value="normal">{defaultSessionName || '매뉴얼PT'}</option>
                                                 {option1Name && <option value="option1">{option1Name}</option>}
                                                 {option2Name && <option value="option2">{option2Name}</option>}
                                                 {option3Name && <option value="option3">{option3Name}</option>}

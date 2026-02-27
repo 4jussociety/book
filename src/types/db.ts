@@ -22,6 +22,7 @@ export type Profile = {
     incentive_percentage_opt1?: number
     incentive_percentage_opt2?: number
     incentive_percentage_opt3?: number
+    default_session_name?: string
     option1_name?: string
     option2_name?: string
     option3_name?: string
@@ -40,6 +41,7 @@ export type System = {
     contact_number: string | null
     manager_name: string | null
     last_client_no: number
+    default_session_name?: string | null
     option1_name?: string | null
     option2_name?: string | null
     option3_name?: string | null
