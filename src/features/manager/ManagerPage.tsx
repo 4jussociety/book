@@ -10,10 +10,10 @@ import { Loader2, Save, MessageSquare, DollarSign, AlertTriangle, ShieldAlert, T
 const DURATION_BUCKETS = [30, 40, 50, 60]
 type DurationPrice = { durationMin: number; sessionType: import('@/types/db').SessionType; priceKrw: number }
 const defaultPrices = (): DurationPrice[] => [
-    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'normal' as const, priceKrw: 0 })),
     ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option1' as const, priceKrw: 0 })),
     ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option2' as const, priceKrw: 0 })),
     ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option3' as const, priceKrw: 0 })),
+    ...DURATION_BUCKETS.map(d => ({ durationMin: d, sessionType: 'option4' as const, priceKrw: 0 })),
 ]
 
 type PackageItem = {
@@ -32,10 +32,10 @@ export default function ManagerPage() {
     const [organizationName, setOrganizationName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
     const [managerName, setManagerName] = useState('')
-    const [defaultSessionName, setDefaultSessionName] = useState('매뉴얼PT')
-    const [option1Name, setOption1Name] = useState('')
+    const [option1Name, setOption1Name] = useState('매뉴얼PT')
     const [option2Name, setOption2Name] = useState('')
     const [option3Name, setOption3Name] = useState('')
+    const [option4Name, setOption4Name] = useState('')
     const [messageTemplate, setMessageTemplate] = useState('')
     const [resetConfirm, setResetConfirm] = useState('')
     const [isResetting, setIsResetting] = useState(false)
@@ -48,10 +48,10 @@ export default function ManagerPage() {
             setOrganizationName(profile.organization_name || '')
             setContactNumber(profile.contact_number || '')
             setManagerName(profile.manager_name || '')
-            setDefaultSessionName(profile.default_session_name || '매뉴얼PT')
-            setOption1Name(profile.option1_name || '')
+            setOption1Name(profile.option1_name || '매뉴얼PT')
             setOption2Name(profile.option2_name || '')
             setOption3Name(profile.option3_name || '')
+            setOption4Name(profile.option4_name || '')
             setMessageTemplate(profile.message_template ||
                 `[예약 안내] {고객}님\n일시: {일시}\n장소: {장소}\n담당: {담당자} 선생님`)
 
@@ -67,7 +67,7 @@ export default function ManagerPage() {
             // 패키지 상품 로드
             const loadPackages = async () => {
                 const { data } = await supabase
-                    .from('membership_packages')
+                    .from('ticket_packages')
                     .select('*')
                     .eq('system_id', profile.system_id)
                     .order('created_at', { ascending: true })
@@ -147,10 +147,10 @@ export default function ManagerPage() {
             const { error: systemError } = await supabase
                 .from('systems')
                 .update({
-                    default_session_name: defaultSessionName || '매뉴얼PT',
-                    option1_name: option1Name || null,
+                    option1_name: option1Name || '매뉴얼PT',
                     option2_name: option2Name || null,
                     option3_name: option3Name || null,
+                    option4_name: option4Name || null,
                 })
                 .eq('id', profile.system_id)
             if (systemError) throw systemError
@@ -184,7 +184,7 @@ export default function ManagerPage() {
         try {
             if (deletedPackageIds.length > 0) {
                 const { error: delError } = await supabase
-                    .from('membership_packages')
+                    .from('ticket_packages')
                     .delete()
                     .in('id', deletedPackageIds)
                 if (delError) throw delError
@@ -217,14 +217,14 @@ export default function ManagerPage() {
 
             if (packagesToUpdate.length > 0) {
                 const { error: updateError } = await supabase
-                    .from('membership_packages')
+                    .from('ticket_packages')
                     .upsert(packagesToUpdate)
                 if (updateError) throw updateError
             }
 
             if (packagesToInsert.length > 0) {
                 const { error: insertError } = await supabase
-                    .from('membership_packages')
+                    .from('ticket_packages')
                     .insert(packagesToInsert)
                 if (insertError) throw insertError
             }
@@ -234,7 +234,7 @@ export default function ManagerPage() {
 
             // 패키지 상품 재로드
             const { data } = await supabase
-                .from('membership_packages')
+                .from('ticket_packages')
                 .select('*')
                 .eq('system_id', profile.system_id)
                 .order('created_at', { ascending: true })
@@ -295,7 +295,7 @@ export default function ManagerPage() {
     }
 
     const handleAddPackage = () => {
-        setPackages([...packages, { name: '', session_type: 'normal', total_sessions: 10, default_price: 0, valid_days: null }])
+        setPackages([...packages, { name: '', session_type: 'option1', total_sessions: 10, default_price: 0, valid_days: null }])
     }
 
     const handleUpdatePackage = (index: number, field: keyof PackageItem, value: any) => {
@@ -414,37 +414,13 @@ export default function ManagerPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {/* 매뉴얼PT (이름 고정에서 변경 가능하게) */}
-                            <tr className="hover:bg-green-50/30 transition-colors">
-                                <td className="px-4 py-3">
-                                    <input
-                                        type="text" value={defaultSessionName} onChange={e => setDefaultSessionName(e.target.value)}
-                                        placeholder="기본 수업 (예: 매뉴얼PT)"
-                                        className="w-full text-center px-3 py-2 bg-white border border-green-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300"
-                                    />
-                                </td>
-                                {DURATION_BUCKETS.map(d => {
-                                    const priceObj = prices.find(p => p.sessionType === 'normal' && p.durationMin === d)
-                                    return (
-                                        <td key={d} className="px-2 py-3 text-center">
-                                            <input
-                                                type="text" inputMode="numeric" disabled={!defaultSessionName.trim()}
-                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
-                                                onChange={e => handlePriceChange('normal', d, e.target.value)}
-                                                placeholder="0"
-                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300 disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100"
-                                            />
-                                        </td>
-                                    )
-                                })}
-                            </tr>
-                            {/* 옵션 1 */}
+                            {/* 수업1 (기본 수업) */}
                             <tr className="hover:bg-green-50/30 transition-colors">
                                 <td className="px-4 py-3">
                                     <input
                                         type="text" value={option1Name} onChange={e => setOption1Name(e.target.value)}
-                                        placeholder="옵션 1 (예: 체형교정)"
-                                        className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
+                                        placeholder="기본 수업 (예: 매뉴얼PT)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-green-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300"
                                     />
                                 </td>
                                 {DURATION_BUCKETS.map(d => {
@@ -456,18 +432,18 @@ export default function ManagerPage() {
                                                 value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
                                                 onChange={e => handlePriceChange('option1', d, e.target.value)}
                                                 placeholder="0"
-                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all placeholder-gray-300 disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100"
                                             />
                                         </td>
                                     )
                                 })}
                             </tr>
-                            {/* 옵션 2 */}
+                            {/* 수업2 */}
                             <tr className="hover:bg-green-50/30 transition-colors">
                                 <td className="px-4 py-3">
                                     <input
                                         type="text" value={option2Name} onChange={e => setOption2Name(e.target.value)}
-                                        placeholder="옵션 2 (예: 재활)"
+                                        placeholder="수업2 (미사용시 비움)"
                                         className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
                                     />
                                 </td>
@@ -486,12 +462,12 @@ export default function ManagerPage() {
                                     )
                                 })}
                             </tr>
-                            {/* 옵션 3 */}
+                            {/* 수업3 */}
                             <tr className="hover:bg-green-50/30 transition-colors">
                                 <td className="px-4 py-3">
                                     <input
                                         type="text" value={option3Name} onChange={e => setOption3Name(e.target.value)}
-                                        placeholder="옵션 3 (미사용시 비움)"
+                                        placeholder="수업3 (미사용시 비움)"
                                         className="w-full text-center px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder-gray-300"
                                     />
                                 </td>
@@ -503,6 +479,30 @@ export default function ManagerPage() {
                                                 type="text" inputMode="numeric" disabled={!option3Name.trim()}
                                                 value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
                                                 onChange={e => handlePriceChange('option3', d, e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
+                                            />
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                            {/* 수업4 */}
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-4 py-3">
+                                    <input
+                                        type="text" value={option4Name} onChange={e => setOption4Name(e.target.value)}
+                                        placeholder="수업4 (미사용시 비움)"
+                                        className="w-full text-center px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder-gray-300"
+                                    />
+                                </td>
+                                {DURATION_BUCKETS.map(d => {
+                                    const priceObj = prices.find(p => p.sessionType === 'option4' && p.durationMin === d)
+                                    return (
+                                        <td key={d} className="px-2 py-3 text-center">
+                                            <input
+                                                type="text" inputMode="numeric" disabled={!option4Name.trim()}
+                                                value={priceObj?.priceKrw ? priceObj.priceKrw.toLocaleString() : ''}
+                                                onChange={e => handlePriceChange('option4', d, e.target.value)}
                                                 placeholder="0"
                                                 className="w-full text-right px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all disabled:bg-gray-50 disabled:text-transparent disabled:border-gray-100 placeholder-gray-300"
                                             />
@@ -523,9 +523,9 @@ export default function ManagerPage() {
                 </div>
             </Section>
 
-            {/* 패키지/상품 설정 (Membership Packages) */}
-            <Section icon={<UserCheck className="w-5 h-5" />} iconBg="bg-teal-50" iconColor="text-teal-600" title="회원권 상품(패키지) 설정">
-                <p className="text-xs text-gray-400 mb-4">예약 화면에서 고객에게 즉시 발급할 수 있는 회원권 상품(패키지) 메뉴팩을 무제한으로 등록해 둘 수 있습니다.</p>
+            {/* 패키지/상품 설정 (Ticket Packages) */}
+            <Section icon={<UserCheck className="w-5 h-5" />} iconBg="bg-teal-50" iconColor="text-teal-600" title="이용권 상품(패키지) 설정">
+                <p className="text-xs text-gray-400 mb-4">예약 화면에서 고객에게 즉시 발급할 수 있는 이용권 상품(패키지) 메뉴팩을 무제한으로 등록해 둘 수 있습니다.</p>
 
                 <div className="overflow-x-auto rounded-xl border border-gray-200 mb-3">
                     <table className="w-full text-left bg-white min-w-[700px]">
@@ -561,10 +561,10 @@ export default function ManagerPage() {
                                                 value={pkg.session_type} onChange={e => handleUpdatePackage(index, 'session_type', e.target.value)}
                                                 className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all cursor-pointer"
                                             >
-                                                <option value="normal">{defaultSessionName || '매뉴얼PT'}</option>
-                                                {option1Name && <option value="option1">{option1Name}</option>}
+                                                <option value="option1">{option1Name || '수업1'}</option>
                                                 {option2Name && <option value="option2">{option2Name}</option>}
                                                 {option3Name && <option value="option3">{option3Name}</option>}
+                                                {option4Name && <option value="option4">{option4Name}</option>}
                                             </select>
                                         </td>
                                         <td className="px-2 py-2">

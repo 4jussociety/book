@@ -34,15 +34,15 @@ export const fetchStats = async (
     const getPrice = (a: any) => {
         if (!a.end_time) return 0
 
-        // 1. 회원권 결제 단가 1순위 적용 (amount_paid / total_sessions)
-        if (a.membership_id && a.membership && a.membership.total_sessions > 0) {
-            return Math.floor(a.membership.amount_paid / a.membership.total_sessions)
+        // 1. 이용권 결제 단가 1순위 적용 (amount_paid / total_sessions)
+        if (a.ticket_id && a.ticket && a.ticket.total_sessions > 0) {
+            return Math.floor(a.ticket.amount_paid / a.ticket.total_sessions)
         }
 
         // 2. 매니저 프로필 기본 단가 적용 (Duration + SessionType 기반)
         const dur = differenceInMinutes(parseISO(a.end_time), parseISO(a.start_time))
         const bucket = normalizeDuration(dur)
-        const sType = a.session_type || 'normal'
+        const sType = a.session_type || 'option1'
         return priceMap.get(`${bucket}_${sType}`) || 0
     }
 
@@ -53,8 +53,8 @@ export const fetchStats = async (
         .from('appointments')
         .select(`
             *,
-            instructor:profiles(full_name, incentive_percentage, incentive_percentage_opt1, incentive_percentage_opt2, incentive_percentage_opt3),
-            membership:client_memberships(amount_paid, total_sessions)
+            instructor:profiles(full_name, incentive_percentage_opt1, incentive_percentage_opt2, incentive_percentage_opt3, incentive_percentage_opt4),
+            ticket:client_tickets(amount_paid, total_sessions)
         `)
         .gte('start_time', startISO)
         .lte('start_time', endISO)
@@ -120,7 +120,7 @@ export const fetchStats = async (
         count: hourCounts[i + distStart] || 0,
     }))
 
-    // 선생님별 실적 + 시간 구간별 집계
+    // 선생님별 실적 + 시간 구간별 집계 (수업 종류별 계층 구조로 개편)
     type InstructorAccum = {
         instructor_id: string
         instructor_name: string
@@ -131,15 +131,16 @@ export const fetchStats = async (
         newclientIds: Set<string>
         returningclientIds: Set<string>
         totalDuration: number
-        durationCounts: Record<number, number>  // 구간별 전체 건수
         revenue: number
         incentive: number
         rates: {
-            normal: number
             option1: number
             option2: number
             option3: number
+            option4: number
         }
+        // 수업 종류(option1, option2...)별로 하위 카운트 객체 관리
+        session_stats: Record<string, import('./types').SessionStats>
     }
 
     const instructorMap = new Map<string, InstructorAccum>()
@@ -155,29 +156,43 @@ export const fetchStats = async (
                 newclientIds: new Set(),
                 returningclientIds: new Set(),
                 totalDuration: 0,
-                durationCounts: {},
                 revenue: 0,
                 incentive: 0,
                 rates: {
-                    normal: instructor?.incentive_percentage || 0,
                     option1: instructor?.incentive_percentage_opt1 || 0,
                     option2: instructor?.incentive_percentage_opt2 || 0,
                     option3: instructor?.incentive_percentage_opt3 || 0,
-                }
+                    option4: instructor?.incentive_percentage_opt4 || 0,
+                },
+                session_stats: {}
             })
         }
         const t = instructorMap.get(tid)!
         t.total++
 
+        const sType = a.session_type || 'normal'
+        if (!t.session_stats[sType]) {
+            t.session_stats[sType] = {
+                total: 0,
+                completed: 0,
+                revenue: 0,
+                incentive: 0,
+                durations: {}
+            }
+        }
+        const sStat = t.session_stats[sType]
+        sStat.total++
+
         // 시간 구간 집계 (전체 예약 기준)
         if (a.end_time) {
             const dur = differenceInMinutes(parseISO(a.end_time as string), parseISO(a.start_time))
             const bucket = normalizeDuration(dur)
-            t.durationCounts[bucket] = (t.durationCounts[bucket] || 0) + 1
+            sStat.durations[bucket] = (sStat.durations[bucket] || 0) + 1
         }
 
         if (a.status === 'COMPLETED') {
             t.completed++
+            sStat.completed++
             if (a.end_time) {
                 const dur = differenceInMinutes(parseISO(a.end_time as string), parseISO(a.start_time))
                 t.totalDuration += dur
@@ -185,13 +200,16 @@ export const fetchStats = async (
             // 매출 집계 (회원권 단가 우선 적용 -> duration 단가)
             const price = getPrice(a)
             t.revenue += price
+            sStat.revenue += price
 
-            let currentRate = t.rates.normal
-            if (a.session_type === 'option1') currentRate = t.rates.option1
+            let currentRate = t.rates.option1
             if (a.session_type === 'option2') currentRate = t.rates.option2
             if (a.session_type === 'option3') currentRate = t.rates.option3
+            if (a.session_type === 'option4') currentRate = t.rates.option4
 
-            t.incentive += Math.round(price * (currentRate / 100))
+            const inc = Math.round(price * (currentRate / 100))
+            t.incentive += inc
+            sStat.incentive += inc
         }
         if (a.status === 'CANCELLED') t.cancelled++
         if (a.status === 'NOSHOW') t.noshow++
@@ -214,7 +232,7 @@ export const fetchStats = async (
         returning_clients: t.returningclientIds.size,
         avg_duration_min: t.completed > 0 ? Math.round(t.totalDuration / t.completed) : 0,
         revenue: t.revenue,
-        incentive_rate: t.rates.normal, // 표기용 (기본 퍼센테이지)
+        incentive_rate: t.rates.option1, // 표기용 (option1 퍼센테이지)
         incentive: t.incentive,
     }))
 
@@ -222,7 +240,7 @@ export const fetchStats = async (
     const instructor_duration_breakdown = Array.from(instructorMap.values()).map(t => ({
         instructor_id: t.instructor_id,
         instructor_name: t.instructor_name,
-        durations: t.durationCounts,
+        session_stats: t.session_stats,
         total: t.total,
     }))
 

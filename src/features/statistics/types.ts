@@ -32,11 +32,20 @@ export type InstructorPerformance = {
     incentive_rate: number // 인센티브 비율
 }
 
-// 선생님별 수업 시간 구간별 실적
+// 선생님별 수업 시간 구간 실적 (다차원 계층구조로 변경)
+export type SessionStats = {
+    total: number
+    completed: number
+    revenue: number
+    incentive: number
+    durations: Record<number, number> // { 30: 5, 50: 3 }
+}
+
 export type InstructorDurationBreakdown = {
     instructor_id: string
     instructor_name: string
-    durations: Record<number, number>  // { 30: 5, 60: 3, ... } 구간별 완료 건수
+    // key: 'normal' | 'option1' | 'option2' | 'option3'
+    session_stats: Record<string, SessionStats>
     total: number
 }
 

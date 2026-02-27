@@ -14,7 +14,7 @@ export async function getAppointments(date: Date) {
             *,
             client:clients!client_id(*),
             instructor:profiles!instructor_id(*),
-            membership:client_memberships!membership_id(id, name, total_sessions, used_sessions, status)
+            ticket:client_tickets!ticket_id(id, name, total_sessions, used_sessions, status)
         `)
         .gte('start_time', formatISO(weekStart))
         .lte('start_time', formatISO(weekEnd))
@@ -23,16 +23,16 @@ export async function getAppointments(date: Date) {
     return data as Appointment[]
 }
 
-export async function getMembershipPackages(systemId?: string) {
+export async function getTicketPackages(systemId?: string) {
     if (!systemId) return []
     const { data, error } = await supabase
-        .from('membership_packages')
+        .from('ticket_packages')
         .select('*')
         .eq('system_id', systemId)
         .order('created_at', { ascending: true })
 
     if (error) throw error
-    return data as import('@/types/db').MembershipPackage[]
+    return data as import('@/types/db').TicketPackage[]
 }
 
 export async function getAppointmentsByClient(clientId: string) {

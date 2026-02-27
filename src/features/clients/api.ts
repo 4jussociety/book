@@ -12,7 +12,7 @@ export type ClientWithDetails = Client & {
         end_time: string
         instructor_name: string
     }
-    active_memberships?: {
+    active_tickets?: {
         id: string
         name: string
         used_sessions: number
@@ -94,20 +94,20 @@ export async function getClients(search?: string): Promise<ClientWithDetails[]> 
         }
     })
 
-    // 회원권 (ACTIVE 상태) 조회
-    const { data: activeMembs } = await supabase
-        .from('client_memberships')
+    // 이용권 (ACTIVE 상태) 조회
+    const { data: activeTicketsData } = await supabase
+        .from('client_tickets')
         .select('id, client_id, name, used_sessions, total_sessions')
         .in('client_id', clientIds)
         .eq('status', 'ACTIVE')
 
-    const activeMembershipsMap = new Map<string, { id: string; name: string; used_sessions: number; total_sessions: number }[]>()
-    activeMembs?.forEach((m: Record<string, unknown>) => {
+    const activeTicketsMap = new Map<string, { id: string; name: string; used_sessions: number; total_sessions: number }[]>()
+    activeTicketsData?.forEach((m: Record<string, unknown>) => {
         const cId = m.client_id as string
-        if (!activeMembershipsMap.has(cId)) {
-            activeMembershipsMap.set(cId, [])
+        if (!activeTicketsMap.has(cId)) {
+            activeTicketsMap.set(cId, [])
         }
-        activeMembershipsMap.get(cId)!.push({
+        activeTicketsMap.get(cId)!.push({
             id: m.id as string,
             name: m.name as string,
             used_sessions: m.used_sessions as number,
@@ -120,7 +120,7 @@ export async function getClients(search?: string): Promise<ClientWithDetails[]> 
         last_instructor_name: instructorMap.get(p.id) || undefined,
         first_visit: firstVisitMap.get(p.id) || undefined,
         next_appointment: nextApptMap.get(p.id) || undefined,
-        active_memberships: activeMembershipsMap.get(p.id) || undefined,
+        active_tickets: activeTicketsMap.get(p.id) || undefined,
     })) as ClientWithDetails[]
 }
 

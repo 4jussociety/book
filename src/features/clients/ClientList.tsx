@@ -22,7 +22,7 @@ export default function ClientList() {
     const navigate = useNavigate()
     const isMobile = useIsMobile()
     const { profile } = useAuth()
-    const [membershipClient, setmembershipClient] = useState<Client | null>(null)
+    const [ticketClient, setTicketClient] = useState<Client | null>(null)
 
     const queryClient = useQueryClient()
 
@@ -173,15 +173,15 @@ export default function ClientList() {
                                         <span className="font-bold text-gray-600">
                                             {Client.visit_count}회차
                                         </span>
-                                        {Client.active_memberships && Client.active_memberships.length > 0 ? (
-                                            Client.active_memberships.map((m, idx) => (
-                                                <button key={idx} onClick={() => setmembershipClient(Client)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer" title={m.name}>
-                                                    🎟️ {m.total_sessions - m.used_sessions}/{m.total_sessions}
+                                        {Client.active_tickets && Client.active_tickets.length > 0 ? (
+                                            Client.active_tickets.map((m, idx) => (
+                                                <button key={idx} onClick={() => setTicketClient(Client)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer" title={m.name}>
+                                                    🎫 {m.total_sessions - m.used_sessions}/{m.total_sessions}
                                                 </button>
                                             ))
                                         ) : (
-                                            <button onClick={() => setmembershipClient(Client)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 border border-gray-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors cursor-pointer">
-                                                + 회원권 등록
+                                            <button onClick={() => setTicketClient(Client)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 border border-gray-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors cursor-pointer">
+                                                + 이용권 등록
                                             </button>
                                         )}
                                     </div>
@@ -283,16 +283,16 @@ export default function ClientList() {
                                         <span className="text-xs text-gray-400 ml-0.5">회차</span>
                                     </td>
                                     <td className="px-5 py-3">
-                                        {Client.active_memberships && Client.active_memberships.length > 0 ? (
+                                        {Client.active_tickets && Client.active_tickets.length > 0 ? (
                                             <div className="flex flex-wrap gap-1">
-                                                {Client.active_memberships.map((m, idx) => (
-                                                    <button key={idx} onClick={() => setmembershipClient(Client)} className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer" title={m.name}>
-                                                        🎟️ {m.total_sessions - m.used_sessions}/{m.total_sessions}
+                                                {Client.active_tickets.map((m, idx) => (
+                                                    <button key={idx} onClick={() => setTicketClient(Client)} className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer" title={m.name}>
+                                                        🎫 {m.total_sessions - m.used_sessions}/{m.total_sessions}
                                                     </button>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <button onClick={() => setmembershipClient(Client)} className="text-[10px] font-bold px-1.5 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors cursor-pointer">
+                                            <button onClick={() => setTicketClient(Client)} className="text-[10px] font-bold px-1.5 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors cursor-pointer">
                                                 + 등록
                                             </button>
                                         )}
@@ -354,19 +354,19 @@ export default function ClientList() {
                 initialData={editingClient}
             />
 
-            {/* 회원권 전용 모달 */}
-            {membershipClient && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setmembershipClient(null)}>
+            {/* 이용권 전용 모달 */}
+            {ticketClient && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setTicketClient(null)}>
                     <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
                         <button
-                            onClick={() => setmembershipClient(null)}
+                            onClick={() => setTicketClient(null)}
                             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
-                        <h2 className="text-lg font-black text-gray-900 mb-1">{membershipClient.name}</h2>
-                        <p className="text-xs text-gray-400 mb-4">회원권 관리</p>
-                        <ClientMembershipsPanel clientId={membershipClient.id} />
+                        <h2 className="text-lg font-black text-gray-900 mb-1">{ticketClient.name}</h2>
+                        <p className="text-xs text-gray-400 mb-4">이용권 관리</p>
+                        <ClientMembershipsPanel clientId={ticketClient.id} />
                     </div>
                 </div>
             )}

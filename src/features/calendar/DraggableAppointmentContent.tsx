@@ -95,9 +95,9 @@ export function DraggableAppointmentContent({
                             </span>
                         )}
                     </div>
-                    {appointment.membership && !isSmall && (
+                    {appointment.ticket && !isSmall && (
                         <div className="text-[10px] font-bold opacity-80 flex items-center gap-1 mt-0.5">
-                            <span>🎟️ {appointment.membership.total_sessions - appointment.membership.used_sessions}/{appointment.membership.total_sessions}</span>
+                            <span>🎫 {appointment.ticket.total_sessions - appointment.ticket.used_sessions}/{appointment.ticket.total_sessions}</span>
                         </div>
                     )}
                 </div>

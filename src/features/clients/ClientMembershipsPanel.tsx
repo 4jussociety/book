@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getClientMemberships, createMembership, deleteMembership } from './membershipsApi'
-import type { ClientMembership } from '@/types/db'
+import { getClientTickets, createTicket, deleteTicket } from './ticketsApi'
+import type { ClientTicket } from '@/types/db'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -21,21 +21,21 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
         payment_date: format(new Date(), 'yyyy-MM-dd')
     })
 
-    const { data: memberships, isLoading } = useQuery({
-        queryKey: ['memberships', clientId],
-        queryFn: () => getClientMemberships(clientId)
+    const { data: tickets, isLoading } = useQuery({
+        queryKey: ['tickets', clientId],
+        queryFn: () => getClientTickets(clientId)
     })
 
     const createMutation = useMutation({
-        mutationFn: async (data: Partial<ClientMembership>) => {
-            return await createMembership({
+        mutationFn: async (data: Partial<ClientTicket>) => {
+            return await createTicket({
                 ...data,
                 client_id: clientId,
                 system_id: profile?.system_id!,
             })
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['memberships', clientId] })
+            queryClient.invalidateQueries({ queryKey: ['tickets', clientId] })
             queryClient.invalidateQueries({ queryKey: ['clients'] })
             setIsCreating(false)
             setFormData({
@@ -49,9 +49,9 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
     })
 
     const deleteMutation = useMutation({
-        mutationFn: deleteMembership,
+        mutationFn: deleteTicket,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['memberships', clientId] })
+            queryClient.invalidateQueries({ queryKey: ['tickets', clientId] })
             queryClient.invalidateQueries({ queryKey: ['clients'] })
         },
         onError: (err) => alert('삭제 실패: ' + err.message)
@@ -63,7 +63,7 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
     }
 
     const handleDelete = (id: string) => {
-        if (confirm('이 회원권을 삭제하시겠습니까? (연결된 예약에는 영향을 주지 않지만 기록이 사라집니다)')) {
+        if (confirm('이 이용권을 삭제하시겠습니까? (연결된 예약에는 영향을 주지 않지만 기록이 사라집니다)')) {
             deleteMutation.mutate(id)
         }
     }
@@ -71,7 +71,7 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
     return (
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <div className="text-sm font-bold text-gray-700">회원권 내역</div>
+                <div className="text-sm font-bold text-gray-700">이용권 내역</div>
                 {!isCreating && (
                     <button
                         onClick={() => setIsCreating(true)}
@@ -85,10 +85,10 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
 
             {isCreating && (
                 <form onSubmit={handleCreate} className="bg-white border border-blue-100 p-4 rounded-xl shadow-sm space-y-3">
-                    <div className="text-xs font-bold text-blue-600 mb-2">새 회원권 발급</div>
+                    <div className="text-xs font-bold text-blue-600 mb-2">새 이용권 발급</div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="col-span-2">
-                            <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">회원권 이름</label>
+                            <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">이용권 이름</label>
                             <input
                                 type="text"
                                 value={formData.name}
@@ -151,13 +151,13 @@ export default function ClientMembershipsPanel({ clientId }: Props) {
 
             {isLoading ? (
                 <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
-            ) : memberships?.length === 0 ? (
+            ) : tickets?.length === 0 ? (
                 <div className="py-8 text-center text-sm text-gray-400 font-bold bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                    발급된 회원권이 없습니다.
+                    발급된 이용권이 없습니다.
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {memberships?.map(m => (
+                    {tickets?.map(m => (
                         <div key={m.id} className="p-4 border border-gray-100 rounded-xl shadow-sm relative overflow-hidden group">
                             {/* status indicator line */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${m.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-300'}`} />

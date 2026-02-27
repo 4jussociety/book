@@ -18,14 +18,14 @@ export type Profile = {
     organization_name?: string
     contact_number?: string
     manager_name?: string
-    incentive_percentage?: number // 0~100
-    incentive_percentage_opt1?: number
+    incentive_percentage_opt1?: number // 0~100
     incentive_percentage_opt2?: number
     incentive_percentage_opt3?: number
-    default_session_name?: string
+    incentive_percentage_opt4?: number
     option1_name?: string
     option2_name?: string
     option3_name?: string
+    option4_name?: string
 
     // 기능별 테이블에서 조인되는 런타임 속성
     pricing?: PricingSetting[]
@@ -41,10 +41,10 @@ export type System = {
     contact_number: string | null
     manager_name: string | null
     last_client_no: number
-    default_session_name?: string | null
     option1_name?: string | null
     option2_name?: string | null
     option3_name?: string | null
+    option4_name?: string | null
 }
 
 export type PricingSetting = {
@@ -67,7 +67,7 @@ export type MessageTemplate = {
     updated_at: string
 }
 
-export type MembershipPackage = {
+export type TicketPackage = {
     id: string
     system_id: string
     name: string
@@ -80,7 +80,7 @@ export type MembershipPackage = {
     updated_at: string
 }
 
-export type ClientMembership = {
+export type ClientTicket = {
     id: string
     system_id: string
     client_id: string
@@ -112,7 +112,7 @@ export type Client = {
 
 export type AppointmentStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NOSHOW'
 export type EventType = 'APPOINTMENT' | 'BLOCK'
-export type SessionType = 'normal' | 'option1' | 'option2' | 'option3'
+export type SessionType = 'option1' | 'option2' | 'option3' | 'option4'
 
 export type Appointment = {
     id: string
@@ -130,13 +130,13 @@ export type Appointment = {
     system_id: string | null
     created_at: string
     price?: number // 예상 결제 금액 (원)
-    membership_id?: string | null // 회원권 연동 ID
-    session_type?: SessionType // 수업 종류 (기본값: normal)
+    ticket_id?: string | null // 이용권 연동 ID
+    session_type?: SessionType // 수업 종류 (기본값: option1)
 
     // Joins
     client?: Client
     instructor?: Profile
-    membership?: ClientMembership
+    ticket?: ClientTicket
 }
 
 export type SystemMember = {

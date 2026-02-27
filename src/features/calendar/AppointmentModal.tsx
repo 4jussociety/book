@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { formatKST, parseKSTDateTime } from '@/lib/dateUtils'
-import { useClients, useProfiles, useCreateAppointment, useUpdateAppointment, useClientAppointments, useMembershipPackages } from './useCalendar'
+import { useClients, useProfiles, useCreateAppointment, useUpdateAppointment, useClientAppointments, useTicketPackages } from './useCalendar'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getActiveMemberships } from '@/features/clients/membershipsApi'
+import { getActiveTickets } from '@/features/clients/ticketsApi'
 import ClientForm from '@/features/clients/ClientForm'
 import { X, Loader2, Calendar, User, UserCheck, Search, CheckCircle, Lock, ArrowRight, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -22,8 +22,8 @@ const appointmentSchema = z.object({
     memo: z.string().optional(),
     event_type: z.enum(['APPOINTMENT', 'BLOCK']),
     block_title: z.string().optional(),
-    membership_id: z.string().optional().nullable(),
-    session_type: z.enum(['normal', 'option1', 'option2', 'option3']),
+    ticket_id: z.string().optional().nullable(),
+    session_type: z.enum(['option1', 'option2', 'option3', 'option4']),
 })
 
 type AppointmentForm = z.infer<typeof appointmentSchema>
@@ -67,7 +67,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
         resolver: zodResolver(appointmentSchema),
         defaultValues: {
             event_type: 'APPOINTMENT',
-            session_type: 'normal',
+            session_type: 'option1',
         }
     })
 
@@ -94,8 +94,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                 setValue('block_title', editingAppointment.block_title || '')
                 setValue('memo', editingAppointment.note || '')
                 setValue('instructor_id', editingAppointment.instructor_id)
-                setValue('membership_id', editingAppointment.membership_id || '')
-                setValue('session_type', editingAppointment.session_type || 'normal')
+                setValue('ticket_id', editingAppointment.ticket_id || '')
+                setValue('session_type', editingAppointment.session_type || 'option1')
 
                 const start = new Date(editingAppointment.start_time)
                 const end = new Date(editingAppointment.end_time)
@@ -126,8 +126,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     event_type: initialData ? 'APPOINTMENT' : 'APPOINTMENT',
                     block_title: '',
                     memo: '',
-                    membership_id: '',
-                    session_type: 'normal',
+                    ticket_id: '',
+                    session_type: 'option1',
                 })
                 setShowPackageForm(false)
                 setSelectedPackageId('')
@@ -158,20 +158,20 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     const { data: clientHistory } = useClientAppointments(selectedClient?.id)
 
-    // 선택된 고객의 ACTIVE 회원권 목록 조회
-    const { data: activeMemberships } = useQuery({
-        queryKey: ['activeMemberships', selectedClient?.id],
-        queryFn: () => getActiveMemberships(selectedClient!.id),
+    // 선택된 고객의 ACTIVE 이용권 목록 조회
+    const { data: activeTickets } = useQuery({
+        queryKey: ['activeTickets', selectedClient?.id],
+        queryFn: () => getActiveTickets(selectedClient!.id),
         enabled: !!selectedClient?.id,
     })
 
-    // 시스템의 전체 회원권 패키지 조회
-    const { data: membershipPackages } = useMembershipPackages(myProfile?.system_id)
+    // 시스템의 전체 이용권 패키지 조회
+    const { data: ticketPackages } = useTicketPackages(myProfile?.system_id)
 
-    // 회원권 즉시 발급 핸들러
+    // 이용권 즉시 발급 핸들러
     const handlePurchasePackage = async () => {
         if (!selectedClient || !selectedPackageId || !myProfile?.system_id) return
-        const pkg = membershipPackages?.find(p => p.id === selectedPackageId)
+        const pkg = ticketPackages?.find(p => p.id === selectedPackageId)
         if (!pkg) return
 
         setIsPurchasingPackage(true)
@@ -187,7 +187,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
             }
 
             const { data, error } = await supabase
-                .from('client_memberships')
+                .from('client_tickets')
                 .insert({
                     system_id: myProfile.system_id,
                     client_id: selectedClient.id,
@@ -204,16 +204,16 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
             if (error) throw error
 
-            // 발급 성공 시, activeMemberships 캐시 무효화 및 해당 회원권 자동 선택
-            await queryClient.invalidateQueries({ queryKey: ['activeMemberships', selectedClient.id] })
-            setValue('membership_id', data.id)
+            // 발급 성공 시, activeTickets 캐시 무효화 및 해당 이용권 자동 선택
+            await queryClient.invalidateQueries({ queryKey: ['activeTickets', selectedClient.id] })
+            setValue('ticket_id', data.id)
             setShowPackageForm(false)
             setSelectedPackageId('')
             setPackageDiscount(0)
 
         } catch (error) {
             console.error('Package purchase error:', error)
-            alert('회원권 발급에 실패했습니다.')
+            alert('이용권 발급에 실패했습니다.')
         } finally {
             setIsPurchasingPackage(false)
         }
@@ -253,7 +253,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                         end_time: endDateTime.toISOString(),
                         note: data.memo, // 예약 메모에도 저장 (선택 사항)
                         block_title: data.block_title,
-                        membership_id: data.membership_id || null,
+                        ticket_id: data.ticket_id || null,
                         session_type: data.session_type,
                         version: editingAppointment.version,
                     }
@@ -268,7 +268,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                     status: 'PENDING',
                     note: data.memo, // 예약 메모에도 저장
                     block_title: data.block_title,
-                    membership_id: data.membership_id || null,
+                    ticket_id: data.ticket_id || null,
                     session_type: data.session_type,
                     system_id: myProfile?.system_id,
                 })
@@ -446,18 +446,18 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                     <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
                                                 )}
                                             </div>
-                                            {/* 회원권 선택 (고객이 활성화된 회원권이 있을 경우) */}
+                                            {/* 이용권 선택 (고객이 활성화된 이용권이 있을 경우) */}
                                             {selectedClient && (
                                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
                                                     <div className="flex justify-between items-center mb-1 ml-1">
-                                                        <label className="block text-[10px] font-black text-amber-600 flex items-center gap-1">🎟️ 회원권 적용</label>
-                                                        {!editingAppointment && membershipPackages && membershipPackages.length > 0 && (
+                                                        <label className="block text-[10px] font-black text-amber-600 flex items-center gap-1">🎫 이용권 적용</label>
+                                                        {!editingAppointment && ticketPackages && ticketPackages.length > 0 && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setShowPackageForm(!showPackageForm)}
                                                                 className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${showPackageForm ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
                                                             >
-                                                                {showPackageForm ? '취소' : '+ 새 회원권 발급'}
+                                                                {showPackageForm ? '취소' : '+ 새 이용권 발급'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -475,7 +475,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                                     className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                                                                 >
                                                                     <option value="">패키지를 선택하세요</option>
-                                                                    {membershipPackages?.filter(p => p.is_active).map(pkg => (
+                                                                    {ticketPackages?.filter(p => p.is_active).map(pkg => (
                                                                         <option key={pkg.id} value={pkg.id}>
                                                                             {pkg.name} ({pkg.total_sessions}회 / {pkg.default_price.toLocaleString()}원)
                                                                         </option>
@@ -483,8 +483,8 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                                 </select>
                                                             </div>
 
-                                                            {selectedPackageId && membershipPackages?.find(p => p.id === selectedPackageId) && (() => {
-                                                                const pkg = membershipPackages.find(p => p.id === selectedPackageId)!
+                                                            {selectedPackageId && ticketPackages?.find(p => p.id === selectedPackageId) && (() => {
+                                                                const pkg = ticketPackages.find(p => p.id === selectedPackageId)!
                                                                 const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
                                                                 return (
                                                                     <div className="bg-amber-50/50 p-2 rounded border border-amber-100/50 space-y-2">
@@ -525,11 +525,11 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                         </div>
                                                     ) : (
                                                         <select
-                                                            {...register('membership_id')}
+                                                            {...register('ticket_id')}
                                                             className="w-full px-3 py-2 bg-white border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer shadow-sm"
                                                         >
                                                             <option value="">적용 안 함 (일반 예약)</option>
-                                                            {activeMemberships?.map(m => (
+                                                            {activeTickets?.map(m => (
                                                                 <option key={m.id} value={m.id}>
                                                                     {m.name} ({m.total_sessions - m.used_sessions}회 남음)
                                                                 </option>
@@ -571,10 +571,10 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                 {...register('session_type')}
                                                 className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
                                             >
-                                                <option value="normal">{myProfile?.default_session_name || '매뉴얼PT'}</option>
-                                                {myProfile?.option1_name && <option value="option1">{myProfile.option1_name}</option>}
+                                                <option value="option1">{myProfile?.option1_name || '수업1'}</option>
                                                 {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
                                                 {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
+                                                {myProfile?.option4_name && <option value="option4">{myProfile.option4_name}</option>}
                                             </select>
                                         </div>
                                     )}

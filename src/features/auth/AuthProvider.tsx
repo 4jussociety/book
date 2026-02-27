@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // 1. Fetch base profile
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
-                .select('id, email, full_name, incentive_percentage, incentive_percentage_opt1, incentive_percentage_opt2, incentive_percentage_opt3')
+                .select('id, email, full_name, incentive_percentage_opt1, incentive_percentage_opt2, incentive_percentage_opt3, incentive_percentage_opt4')
                 .eq('id', userId)
                 .maybeSingle()
 
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // 3. Fetch system details to inject settings into profile
                     const { data: systemData, error: sysError } = await supabase
                         .from('systems')
-                        .select('owner_id, organization_name, contact_number, manager_name, default_session_name, option1_name, option2_name, option3_name')
+                        .select('owner_id, organization_name, contact_number, manager_name, option1_name, option2_name, option3_name, option4_name')
                         .eq('id', memberData.system_id)
                         .maybeSingle()
 
@@ -86,10 +86,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         combinedProfile.organization_name = systemData.organization_name || undefined
                         combinedProfile.contact_number = systemData.contact_number || undefined
                         combinedProfile.manager_name = systemData.manager_name || undefined
-                        combinedProfile.default_session_name = systemData.default_session_name || undefined
                         combinedProfile.option1_name = systemData.option1_name || undefined
                         combinedProfile.option2_name = systemData.option2_name || undefined
                         combinedProfile.option3_name = systemData.option3_name || undefined
+                        combinedProfile.option4_name = systemData.option4_name || undefined
                     }
 
                     // 가격 설정 주입
