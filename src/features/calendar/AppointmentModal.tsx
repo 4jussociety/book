@@ -74,6 +74,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
     const eventType = watch('event_type')
     const watchStartTime = watch('start_time')
     const watchEndTime = watch('end_time')
+    const watchSessionType = watch('session_type') // [추가] 선택된 수업 종류 관찰
 
     // 시간 유효성 검증: 종료시간이 시작시간보다 앞서면 true
     const isTimeInvalid = (() => {
@@ -167,6 +168,33 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
     // 시스템의 전체 이용권 패키지 조회
     const { data: ticketPackages } = useTicketPackages(myProfile?.system_id)
+
+    // [추가] 현재 선택된 수업 종류에 기반하여 동적으로 이용권 및 패키지 필터링
+    const selectedSessionTypeName = (() => {
+        if (!myProfile) return '수업1'
+        switch (watchSessionType) {
+            case 'option1': return myProfile.option1_name || '수업1'
+            case 'option2': return myProfile.option2_name || '수업2'
+            case 'option3': return myProfile.option3_name || '수업3'
+            case 'option4': return myProfile.option4_name || '수업4'
+            default: return myProfile.option1_name || '수업1'
+        }
+    })()
+
+    // [수정] 패키지와 이용권 중 "이름이 현재 선택된 수업 종류와 일치"하거나 "session_type" 정보가 일치하는 것만 필터링
+    // (현재 이용권 데이터 구조 상, 패키지 생성 시 session_type 또는 name으로 매핑된다고 가정)
+    const filteredTicketPackages = ticketPackages?.filter(p => p.is_active && p.session_type === watchSessionType) || []
+
+    // 이용권(ClientTicket)의 경우 이름(name) 또는 패키지와 동일한 매칭 룰을 적용합니다. 
+    // 여기서는 활성화된 티켓 중 이용권 이름(name)을 통해 필터링하거나, 
+    // 향후 ClientTicket 테이블에 session_type이 있다면 그 속성으로 필터링할 수 있습니다.
+    // 기존 시스템 로직 상 패키지 이름이 이용권 이름으로 복사되므로 일단 이름으로 간접 필터링 또는 session_type 가능 시 필터링 수행
+    const filteredActiveTickets = activeTickets?.filter(t => {
+        // 가장 정확한 것은 향후 tickets에 session_type을 추가하는 것이지만, 현재는 패키지 이름과 대조
+        // ticketPackages에 있는 패키지 중 현재 수업 종류인 패키지의 '이름들'과 일치하는 이용권만 추출
+        const validPackageNames = ticketPackages?.filter(p => p.session_type === watchSessionType).map(p => p.name) || []
+        return validPackageNames.includes(t.name) || t.name.includes(selectedSessionTypeName)
+    }) || []
 
     // 이용권 즉시 발급 핸들러
     const handlePurchasePackage = async () => {
@@ -423,13 +451,13 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
 
                             {/* Row 1: Client/Title & Instructor */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* Col 1 */}
+                                {/* Col 1: 고객 정보 및 수업 종류 */}
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">
                                         {eventType === 'BLOCK' ? '잠금 제목' : '고객 정보'}
                                     </label>
                                     {eventType === 'APPOINTMENT' ? (
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
                                             <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100 flex items-center gap-2.5 h-[42px]">
                                                 <div className="w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 shrink-0">
                                                     <User className="w-3.5 h-3.5" />
@@ -446,99 +474,26 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                                     <button type="button" onClick={() => setStep('PATIENT_SEARCH')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg">변경</button>
                                                 )}
                                             </div>
-                                            {/* 이용권 선택 (고객이 활성화된 이용권이 있을 경우) */}
-                                            {selectedClient && (
-                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
-                                                    <div className="flex justify-between items-center mb-1 ml-1">
-                                                        <label className="block text-[10px] font-black text-amber-600 flex items-center gap-1">🎫 이용권 적용</label>
-                                                        {!editingAppointment && ticketPackages && ticketPackages.length > 0 && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowPackageForm(!showPackageForm)}
-                                                                className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${showPackageForm ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-                                                            >
-                                                                {showPackageForm ? '취소' : '+ 새 이용권 발급'}
-                                                            </button>
-                                                        )}
-                                                    </div>
 
-                                                    {showPackageForm ? (
-                                                        <div className="space-y-2 mt-2 p-3 bg-white border border-amber-200 rounded-lg animate-in slide-in-from-top-1">
-                                                            <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">패키지 상품 선택</label>
-                                                                <select
-                                                                    value={selectedPackageId}
-                                                                    onChange={e => {
-                                                                        setSelectedPackageId(e.target.value)
-                                                                        setPackageDiscount(0) // 새 상품 선택시 할인 초기화
-                                                                    }}
-                                                                    className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                                                                >
-                                                                    <option value="">패키지를 선택하세요</option>
-                                                                    {ticketPackages?.filter(p => p.is_active).map(pkg => (
-                                                                        <option key={pkg.id} value={pkg.id}>
-                                                                            {pkg.name} ({pkg.total_sessions}회 / {pkg.default_price.toLocaleString()}원)
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-
-                                                            {selectedPackageId && ticketPackages?.find(p => p.id === selectedPackageId) && (() => {
-                                                                const pkg = ticketPackages.find(p => p.id === selectedPackageId)!
-                                                                const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
-                                                                return (
-                                                                    <div className="bg-amber-50/50 p-2 rounded border border-amber-100/50 space-y-2">
-                                                                        <div className="flex justify-between text-[10px]">
-                                                                            <span className="text-gray-500 font-bold">기본 금액:</span>
-                                                                            <span className="font-bold text-gray-900">{pkg.default_price.toLocaleString()}원</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between items-center text-[10px]">
-                                                                            <span className="text-gray-500 font-bold">현장 할인:</span>
-                                                                            <div className="flex items-center gap-1">
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={packageDiscount || ''}
-                                                                                    onChange={e => setPackageDiscount(parseInt(e.target.value) || 0)}
-                                                                                    className="w-20 px-1.5 py-1 text-right border border-gray-200 rounded text-xs font-bold outline-none focus:border-amber-400"
-                                                                                    placeholder="0"
-                                                                                />
-                                                                                <span className="font-bold text-gray-600">원</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex justify-between text-[11px] pt-1 border-t border-amber-100">
-                                                                            <span className="text-amber-700 font-black">최종 결제:</span>
-                                                                            <span className="font-black text-amber-700">{finalPrice.toLocaleString()}원</span>
-                                                                        </div>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={handlePurchasePackage}
-                                                                            disabled={isPurchasingPackage}
-                                                                            className="w-full mt-2 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
-                                                                        >
-                                                                            {isPurchasingPackage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                                                                            즉시 발급 및 적용
-                                                                        </button>
-                                                                    </div>
-                                                                )
-                                                            })()}
-                                                        </div>
-                                                    ) : (
-                                                        <select
-                                                            {...register('ticket_id')}
-                                                            className="w-full px-3 py-2 bg-white border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer shadow-sm"
-                                                        >
-                                                            <option value="">적용 안 함 (일반 예약)</option>
-                                                            {activeTickets?.map(m => (
-                                                                <option key={m.id} value={m.id}>
-                                                                    {m.name} ({m.total_sessions - m.used_sessions}회 남음)
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
+                                            {/* [이동됨] 수업 종류(Session Type) 선택 */}
+                                            {eventType === 'APPOINTMENT' && (
+                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-2">
+                                                    <label className="block text-[10px] font-black text-blue-600 mb-1 ml-1 flex items-center gap-1">🏷️ 수업 종류</label>
+                                                    <select
+                                                        {...register('session_type')}
+                                                        className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer transition-all"
+                                                        onChange={(e) => {
+                                                            setValue('session_type', e.target.value as any)
+                                                            setValue('ticket_id', '') // 수업 종류가 변경되면 이용권 선택을 초기화
+                                                        }}
+                                                    >
+                                                        <option value="option1">{myProfile?.option1_name || '수업1'}</option>
+                                                        {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
+                                                        {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
+                                                        {myProfile?.option4_name && <option value="option4">{myProfile.option4_name}</option>}
+                                                    </select>
                                                 </div>
                                             )}
-
                                         </div>
                                     ) : (
                                         <input
@@ -550,7 +505,7 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                     )}
                                 </div>
 
-                                {/* Col 2 */}
+                                {/* Col 2: 담당 선생님 및 이용권 선택 */}
                                 <div className="space-y-3">
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 mb-1 ml-1">담당 선생님</label>
@@ -563,19 +518,96 @@ export default function AppointmentModal({ isOpen, onClose, initialData, editing
                                         </select>
                                     </div>
 
-                                    {/* 수업 종류(Session Type) 선택 */}
-                                    {eventType === 'APPOINTMENT' && (
-                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <label className="block text-[10px] font-black text-blue-600 mb-1 ml-1 flex items-center gap-1">🏷️ 수업 종류</label>
-                                            <select
-                                                {...register('session_type')}
-                                                className="w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold text-xs h-[42px] cursor-pointer"
-                                            >
-                                                <option value="option1">{myProfile?.option1_name || '수업1'}</option>
-                                                {myProfile?.option2_name && <option value="option2">{myProfile.option2_name}</option>}
-                                                {myProfile?.option3_name && <option value="option3">{myProfile.option3_name}</option>}
-                                                {myProfile?.option4_name && <option value="option4">{myProfile.option4_name}</option>}
-                                            </select>
+                                    {/* [이동됨] 이용권 선택 (고객이 선택되었을 경우) */}
+                                    {eventType === 'APPOINTMENT' && selectedClient && (
+                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                                            <div className="flex justify-between items-center mb-1 ml-1">
+                                                <label className="block text-[10px] font-black text-amber-600 flex items-center gap-1">🎫 이용권 적용</label>
+                                                {!editingAppointment && ticketPackages && ticketPackages.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPackageForm(!showPackageForm)}
+                                                        className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${showPackageForm ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                                                    >
+                                                        {showPackageForm ? '취소' : '+ 새 이용권 발급'}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {showPackageForm ? (
+                                                <div className="space-y-2 mt-2 p-3 bg-white border border-amber-200 rounded-lg animate-in slide-in-from-top-1">
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-gray-500 mb-1">패키지 상품 선택 ({selectedSessionTypeName} 전용)</label>
+                                                        <select
+                                                            value={selectedPackageId}
+                                                            onChange={e => {
+                                                                setSelectedPackageId(e.target.value)
+                                                                setPackageDiscount(0) // 새 상품 선택시 할인 초기화
+                                                            }}
+                                                            className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                                                        >
+                                                            <option value="">패키지를 선택하세요</option>
+                                                            {filteredTicketPackages.map(pkg => (
+                                                                <option key={pkg.id} value={pkg.id}>
+                                                                    {pkg.name} ({pkg.total_sessions}회 / {pkg.default_price.toLocaleString()}원)
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    {selectedPackageId && ticketPackages?.find(p => p.id === selectedPackageId) && (() => {
+                                                        const pkg = ticketPackages.find(p => p.id === selectedPackageId)!
+                                                        const finalPrice = Math.max(0, pkg.default_price - packageDiscount)
+                                                        return (
+                                                            <div className="bg-amber-50/50 p-2 rounded border border-amber-100/50 space-y-2">
+                                                                <div className="flex justify-between text-[10px]">
+                                                                    <span className="text-gray-500 font-bold">기본 금액:</span>
+                                                                    <span className="font-bold text-gray-900">{pkg.default_price.toLocaleString()}원</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-[10px]">
+                                                                    <span className="text-gray-500 font-bold">현장 할인:</span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={packageDiscount || ''}
+                                                                            onChange={e => setPackageDiscount(parseInt(e.target.value) || 0)}
+                                                                            className="w-20 px-1.5 py-1 text-right border border-gray-200 rounded text-xs font-bold outline-none focus:border-amber-400"
+                                                                            placeholder="0"
+                                                                        />
+                                                                        <span className="font-bold text-gray-600">원</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex justify-between text-[11px] pt-1 border-t border-amber-100">
+                                                                    <span className="text-amber-700 font-black">최종 결제:</span>
+                                                                    <span className="font-black text-amber-700">{finalPrice.toLocaleString()}원</span>
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handlePurchasePackage}
+                                                                    disabled={isPurchasingPackage}
+                                                                    className="w-full mt-2 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                                                                >
+                                                                    {isPurchasingPackage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                                                    즉시 발급 및 적용
+                                                                </button>
+                                                            </div>
+                                                        )
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    {...register('ticket_id')}
+                                                    className="w-full px-3 py-2 bg-white border border-amber-200 text-amber-800 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none font-bold text-xs h-[42px] cursor-pointer shadow-sm"
+                                                >
+                                                    <option value="">적용 안 함 (일반 예약)</option>
+                                                    {filteredActiveTickets.map(m => (
+                                                        <option key={m.id} value={m.id}>
+                                                            {m.name} ({m.total_sessions - m.used_sessions}회 남음)
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </div>
                                     )}
                                 </div>

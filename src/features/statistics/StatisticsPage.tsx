@@ -457,97 +457,108 @@ export default function StatisticsPage() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    {/* 상단 1열: 수업 종류 헤더 */}
-                                    <tr className="bg-gray-50/80 border-b border-gray-100">
-                                        <th className="px-5 py-3 border-r border-gray-100" rowSpan={2}>
+                                    {/* 단일 행 헤더: 선생님, 수업 종류, 시간구간들, 완료합계, 매출, 인센티브 */}
+                                    <tr className="bg-gray-50/80 border-b border-gray-200">
+                                        <th className="px-5 py-3 border-r border-gray-100 whitespace-nowrap">
                                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block text-center">선생님</span>
                                         </th>
-                                        {activeSessionTypes.map(sType => (
-                                            <th key={sType} className="px-4 py-2 border-r border-gray-100 text-center bg-gray-100/50" colSpan={activeBuckets.length + 3}>
-                                                <span className="text-xs font-black text-gray-700">{SESSION_LABELS[sType] || sType}</span>
+                                        <th className="px-5 py-3 border-r border-gray-100 whitespace-nowrap">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block text-center">수업 종류</span>
+                                        </th>
+                                        {activeBuckets.map(b => (
+                                            <th key={`bucket-${b}`} className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">
+                                                {BUCKET_LABELS[b]}
                                             </th>
                                         ))}
-                                    </tr>
-                                    {/* 하단 2열: 각 분류별 상세 횟수 및 정보 헤더 */}
-                                    <tr className="bg-gray-50/80 border-b border-gray-200">
-                                        {activeSessionTypes.map(sType => (
-                                            <React.Fragment key={`sub-${sType}`}>
-                                                {activeBuckets.map(b => (
-                                                    <th key={b} className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">
-                                                        {BUCKET_LABELS[b]}
-                                                    </th>
-                                                ))}
-                                                <th className="px-3 py-2 text-[10px] font-black text-blue-500 uppercase tracking-wider text-center bg-blue-50/30">완료합계</th>
-                                                <th className="px-3 py-2 text-[10px] font-black text-green-600 uppercase tracking-wider text-center bg-green-50/30">매출</th>
-                                                <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center border-r border-gray-100">인센티브</th>
-                                            </React.Fragment>
-                                        ))}
+                                        <th className="px-3 py-2 text-[10px] font-black text-blue-500 uppercase tracking-wider text-center bg-blue-50/30 whitespace-nowrap">완료합계</th>
+                                        <th className="px-3 py-2 text-[10px] font-black text-green-600 uppercase tracking-wider text-center bg-green-50/30 whitespace-nowrap">매출</th>
+                                        <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center border-r border-gray-100 whitespace-nowrap">인센티브</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {stats.instructor_duration_breakdown.map(t => {
+                                    {stats.instructor_duration_breakdown.map((t) => {
                                         const perf = stats.instructor_performance.find(p => p.instructor_id === t.instructor_id)
-                                        return (
-                                            <tr key={t.instructor_id} className="hover:bg-blue-50/20 transition-colors">
-                                                <td className="px-5 py-4 border-r border-gray-100 bg-white sticky left-0 z-10 shadow-[1px_0_2px_rgba(0,0,0,0.02)]">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black text-sm text-gray-900">{t.instructor_name}</span>
-                                                        <span className="text-[10px] text-gray-400 font-bold mt-1">
-                                                            총 {perf?.total_appointments}건 (캔슬{perf?.cancelled_appointments}/노쇼{perf?.noshow_appointments})
+                                        // 해당 선생님이 진행한 수업 종류들이 없으면 fallback용 더미 배열(1줄 유지용) 하나 생성
+                                        const rowsToRender = activeSessionTypes.length > 0 ? activeSessionTypes : ['none']
+                                        const rowSpanCount = rowsToRender.length
+
+                                        return rowsToRender.map((sType, sIndex) => {
+                                            const sStat = sType !== 'none' ? t.session_stats?.[sType] : null
+                                            // Intensity 계산 (해당 '수업 종류'에서의 최대값 기준)
+                                            const maxInRow = sStat ? Math.max(...activeBuckets.map(b => sStat.durations?.[b] || 0), 1) : 1
+
+                                            return (
+                                                <tr key={`${t.instructor_id}-${sType}`} className={`hover:bg-blue-50/10 transition-colors ${sIndex === rowSpanCount - 1 ? 'border-b border-gray-200' : ''}`}>
+                                                    {/* 첫 번째 행에만 선생님 이름 표시 (rowSpan) */}
+                                                    {sIndex === 0 && (
+                                                        <td
+                                                            rowSpan={rowSpanCount}
+                                                            className="px-5 py-4 border-r border-gray-100 bg-white sticky left-0 z-10 shadow-[1px_0_2px_rgba(0,0,0,0.02)] align-top"
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-sm text-gray-900">{t.instructor_name}</span>
+                                                                <span className="text-[10px] text-gray-400 font-bold mt-1">
+                                                                    총 {perf?.total_appointments}건 (캔슬{perf?.cancelled_appointments}/노쇼{perf?.noshow_appointments})
+                                                                </span>
+                                                                <span className="text-[10px] text-purple-600 font-bold">신규: {perf?.new_clients}명</span>
+                                                            </div>
+                                                        </td>
+                                                    )}
+
+                                                    {/* 수업 종류 이름 (매 행마다 표시) */}
+                                                    <td className="px-4 py-3 border-r border-gray-100 whitespace-nowrap bg-gray-50/30 align-middle">
+                                                        <span className="text-xs font-black text-gray-700">
+                                                            {sType !== 'none' ? (SESSION_LABELS[sType] || sType) : '-'}
                                                         </span>
-                                                        <span className="text-[10px] text-purple-600 font-bold">신규: {perf?.new_clients}명</span>
-                                                    </div>
-                                                </td>
-                                                {activeSessionTypes.map(sType => {
-                                                    const sStat = t.session_stats?.[sType]
+                                                    </td>
 
-                                                    // Bar chart indicator intensity calc
-                                                    const maxInRow = sStat ? Math.max(...activeBuckets.map(b => sStat.durations?.[b] || 0), 1) : 1
-
-                                                    return (
-                                                        <React.Fragment key={`data-${t.instructor_id}-${sType}`}>
-                                                            {activeBuckets.map(b => {
-                                                                const cnt = sStat?.durations?.[b] || 0
-                                                                const intensity = sStat?.total > 0 ? cnt / maxInRow : 0
-                                                                return (
-                                                                    <td key={b} className="px-3 py-4 text-center border-dashed border-r border-gray-100/50">
-                                                                        {cnt > 0 ? (
-                                                                            <div className="flex justify-center">
-                                                                                <div
-                                                                                    className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs transition-all"
-                                                                                    style={{
-                                                                                        backgroundColor: `${BUCKET_BAR_COLORS[b]}${Math.round(intensity * 0.85 * 255).toString(16).padStart(2, '0')}`,
-                                                                                        color: intensity > 0.5 ? '#fff' : BUCKET_BAR_COLORS[b],
-                                                                                    }}
-                                                                                >
-                                                                                    {cnt}
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-gray-200 font-bold text-xs">—</span>
-                                                                        )}
-                                                                    </td>
-                                                                )
-                                                            })}
-                                                            <td className="px-3 py-4 text-center bg-blue-50/10">
-                                                                <span className="font-black text-sm text-blue-600">{sStat?.completed || 0}</span>
-                                                                <div className="text-[9px] text-gray-400">/ 예약 {sStat?.total || 0}</div>
-                                                            </td>
-                                                            <td className="px-3 py-4 text-center bg-green-50/10">
-                                                                <span className="font-black text-sm text-gray-900">{(sStat?.revenue || 0).toLocaleString()}</span>
-                                                            </td>
-                                                            <td className="px-3 py-4 text-center border-r border-gray-100">
-                                                                {sStat?.incentive > 0 ? (
-                                                                    <span className="font-black text-xs text-blue-500">{(sStat?.incentive || 0).toLocaleString()}</span>
+                                                    {/* 각 구간별 (30분, 40분, 50분...) 건수 */}
+                                                    {activeBuckets.map(b => {
+                                                        const cnt = sStat?.durations?.[b] || 0
+                                                        const intensity = (sStat?.total || 0) > 0 ? cnt / maxInRow : 0
+                                                        return (
+                                                            <td key={`data-${b}`} className="px-3 py-3 text-center border-dashed border-r border-gray-100/50 align-middle">
+                                                                {cnt > 0 ? (
+                                                                    <div className="flex justify-center">
+                                                                        <div
+                                                                            className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs transition-all"
+                                                                            style={{
+                                                                                backgroundColor: `${BUCKET_BAR_COLORS[b]}${Math.round(intensity * 0.85 * 255).toString(16).padStart(2, '0')}`,
+                                                                                color: intensity > 0.5 ? '#fff' : BUCKET_BAR_COLORS[b],
+                                                                            }}
+                                                                        >
+                                                                            {cnt}
+                                                                        </div>
+                                                                    </div>
                                                                 ) : (
                                                                     <span className="text-gray-200 font-bold text-xs">—</span>
                                                                 )}
                                                             </td>
-                                                        </React.Fragment>
-                                                    )
-                                                })}
-                                            </tr>
-                                        )
+                                                        )
+                                                    })}
+
+                                                    {/* 완료 합계 */}
+                                                    <td className="px-3 py-3 text-center bg-blue-50/10 align-middle">
+                                                        <span className="font-black text-sm text-blue-600">{sStat?.completed || 0}</span>
+                                                        {(sStat?.total || 0) > 0 && <div className="text-[9px] text-gray-400">/ 예약 {sStat?.total}</div>}
+                                                    </td>
+
+                                                    {/* 매출 */}
+                                                    <td className="px-3 py-3 text-center bg-green-50/10 align-middle">
+                                                        <span className="font-black text-sm text-gray-900">{(sStat?.revenue || 0).toLocaleString()}</span>
+                                                    </td>
+
+                                                    {/* 인센티브 */}
+                                                    <td className="px-3 py-3 text-center border-r border-gray-100 align-middle">
+                                                        {(sStat?.incentive || 0) > 0 ? (
+                                                            <span className="font-black text-xs text-blue-500">{(sStat?.incentive || 0).toLocaleString()}</span>
+                                                        ) : (
+                                                            <span className="text-gray-200 font-bold text-xs">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })
                                     })}
                                 </tbody>
                             </table>
