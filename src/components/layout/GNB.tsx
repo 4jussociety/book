@@ -97,7 +97,7 @@ export default function GNB() {
                                         {profile?.is_owner ? (
                                             <>
                                                 <Link onClick={() => setProfileMenuOpen(false)} to="/settings" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">센터 설정</Link>
-                                                <Link onClick={() => setProfileMenuOpen(false)} to="/members" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">멤버 관리</Link>
+                                                <Link onClick={() => setProfileMenuOpen(false)} to="/members" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">직원 관리</Link>
                                             </>
                                         ) : (
                                             <Link onClick={() => setProfileMenuOpen(false)} to="/profile" className="block px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">내 프로필</Link>

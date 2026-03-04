@@ -91,6 +91,10 @@ CREATE TRIGGER tr_generate_schedule_code
 BEFORE INSERT ON systems
 FOR EACH ROW EXECUTE FUNCTION generate_schedule_code();
 
+-- 기존 시스템에 스케줄 코드가 없으면 자동 부여
+UPDATE systems SET schedule_code = lpad(floor(random() * 1000000)::text, 6, '0')
+WHERE schedule_code IS NULL;
+
 -- ──────────────────────────────────────────────
 -- (2) profiles: 사용자(선생님/스태프) 프로필
 -- auth.users와 1:1 연결, 프로필 정보 저장

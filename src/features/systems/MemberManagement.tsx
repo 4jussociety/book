@@ -247,7 +247,7 @@ export default function MemberManagement() {
             })
 
             if (fnError) {
-                throw new Error(fnError.message || '멤버 발급에 실패했습니다.')
+                throw new Error(fnError.message || '직원 발급에 실패했습니다.')
             }
 
             if (data?.error) {
@@ -255,14 +255,14 @@ export default function MemberManagement() {
             }
 
             // 성공
-            alert(`${newMemberForm.name} 멤버가 성공적으로 발급되었습니다.`)
+            alert(`${newMemberForm.name} 직원이 성공적으로 발급되었습니다.`)
             setShowCreateModal(false)
             setNewMemberForm({ email: '', password: '', name: '', role: 'instructor' })
             fetchMembers()
 
         } catch (err: any) {
             console.error('Error creating member:', err)
-            alert(`멤버 발급 실패: ${err.message}`)
+            alert(`직원 발급 실패: ${err.message}`)
         } finally {
             setIsCreating(false)
         }
@@ -285,9 +285,9 @@ export default function MemberManagement() {
                         <Users className="w-6 h-6" />
                     </div>
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900">멤버 관리</h1>
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900">직원 관리</h1>
                         <p className="text-gray-500 text-xs md:text-sm hidden sm:block">직원의 접속 계정(ID/PW)을 직접 발급하고 권한을 관리합니다.</p>
-                        <p className="text-blue-600 text-xs font-bold mt-1 bg-blue-50 px-2 py-1 rounded inline-block">💡 팁: 새 멤버 발급 시 설정한 초기 비밀번호를 직원에게 따로 전달해주세요.</p>
+                        <p className="text-blue-600 text-xs font-bold mt-1 bg-blue-50 px-2 py-1 rounded inline-block">💡 팁: 새 직원 발급 시 설정한 초기 비밀번호를 직원에게 따로 전달해주세요.</p>
                         {!profile?.system_id && (
                             <p className="text-red-500 text-xs font-bold mt-1">⚠️ 시스템 ID가 설정되지 않았습니다. 새로고침 해주세요.</p>
                         )}
@@ -300,7 +300,7 @@ export default function MemberManagement() {
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
                     >
                         <Plus className="w-4 h-4" />
-                        <span className="hidden sm:inline">멤버 추가 발급</span>
+                        <span className="hidden sm:inline">직원 추가 발급</span>
                         <span className="sm:hidden">추가</span>
                     </button>
                     <button
@@ -316,7 +316,7 @@ export default function MemberManagement() {
             {/* 승인된 멤버 목록 (Current Members) */}
             <section className="mb-12">
                 <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    등록된 멤버
+                    등록된 직원
                     <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
                         {members.length}
                     </span>
@@ -339,7 +339,7 @@ export default function MemberManagement() {
                                     <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <Users className="w-8 h-8 opacity-20" />
-                                            <span>아직 등록된 멤버가 없습니다.<br />[멤버 추가 발급] 버튼을 눌러 직원을 등록해주세요.</span>
+                                            <span>아직 등록된 직원이 없습니다.<br />[직원 추가 발급] 버튼을 눌러 직원을 등록해주세요.</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -618,7 +618,7 @@ export default function MemberManagement() {
                                                             {member.role !== 'owner' && (
                                                                 <button
                                                                     onClick={async () => {
-                                                                        if (!confirm(`정말 ${member.profiles?.full_name} 멤버를 추방하시겠습니까?\n이 작업은 즉시 반영되며, 해당 계정은 더 이상 이 시스템에 로그인할 수 없습니다.`)) return
+                                                                        if (!confirm(`정말 ${member.profiles?.full_name} 직원을 추방하시겠습니까?\n이 작업은 즉시 반영되며, 해당 계정은 더 이상 이 시스템에 로그인할 수 없습니다.`)) return
                                                                         setProcessingId(member.id)
                                                                         try {
                                                                             await supabase.from('system_members').delete().eq('id', member.id)
@@ -657,7 +657,7 @@ export default function MemberManagement() {
                         <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Key className="w-5 h-5 text-blue-600" />
-                                새 멤버 발급
+                                새 직원 발급
                             </h3>
                             <button
                                 onClick={() => setShowCreateModal(false)}
@@ -745,7 +745,7 @@ export default function MemberManagement() {
                                     {isCreating ? (
                                         <><Loader2 className="w-4 h-4 animate-spin" /> 발급 중...</>
                                     ) : (
-                                        <><Check className="w-4 h-4" />멤버 발급 완료</>
+                                        <><Check className="w-4 h-4" />직원 발급 완료</>
                                     )}
                                 </button>
                             </div>

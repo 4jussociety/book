@@ -259,7 +259,7 @@ export default function ManagerPage() {
     const handleDeleteSystem = async () => {
         if (resetConfirm !== '초기화') return
         if (!profile?.system_id) return
-        if (!confirm('정말로 시스템을 완전히 삭제하시겠습니까?\n\n모든 멤버 계정, 고객, 예약, 설정 데이터가 영구 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.')) return
+        if (!confirm('정말로 시스템을 완전히 삭제하시겠습니까?\n\n모든 직원 계정, 고객, 예약, 설정 데이터가 영구 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.')) return
 
         setIsResetting(true)
         try {
@@ -652,7 +652,7 @@ export default function ManagerPage() {
                     <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                         <p className="text-sm text-red-700 font-bold mb-1">⚠️ 위험한 작업</p>
                         <p className="text-xs text-red-600">
-                            시스템을 삭제하면 모든 멤버, 고객, 예약, 설정 데이터가 <strong>영구적으로 삭제</strong>됩니다.<br />
+                            시스템을 삭제하면 모든 직원, 고객, 예약, 설정 데이터가 <strong>영구적으로 삭제</strong>됩니다.<br />
                             삭제 후 새로운 시스템을 바로 생성할 수 있습니다.
                         </p>
                     </div>
