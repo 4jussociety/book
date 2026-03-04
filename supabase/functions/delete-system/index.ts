@@ -115,14 +115,42 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        // 6. 시스템 삭제 (CASCADE로 system_members, clients, appointments 등 자동 삭제)
+        // 5.5 의존 데이터 명시적 순차 삭제 (ON DELETE CASCADE 동작 불확실 대응 + 트리거 충돌 방지)
+        // 자식 테이블부터 부모 테이블 순으로 역순 삭제
+
+        const deleteOps = [
+            { table: 'appointments', name: '예약' },
+            { table: 'client_tickets', name: '고객 이용권' },
+            { table: 'clients', name: '고객' },
+            { table: 'ticket_packages', name: '이용권 상품 설정' },
+            { table: 'message_templates', name: '문자 템플릿' },
+            { table: 'pricing_settings', name: '단가 설정' },
+            { table: 'system_members', name: '멤버 권한 목록' }
+        ]
+
+        for (const op of deleteOps) {
+            const { error: delErr } = await supabaseAdmin
+                .from(op.table)
+                .delete()
+                .eq('system_id', systemId)
+
+            if (delErr) {
+                console.error(`${op.name}(${op.table}) 삭제 중 오류:`, delErr)
+                return new Response(JSON.stringify({ error: `${op.name} 삭제 실패`, details: delErr.message }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 500,
+                })
+            }
+        }
+
+        // 6. 시스템 최종 삭제
         const { error: deleteSystemError } = await supabaseAdmin
             .from('systems')
             .delete()
             .eq('id', systemId)
 
         if (deleteSystemError) {
-            console.error('시스템 삭제 실패:', deleteSystemError)
+            console.error('시스템 최종 삭제 실패:', deleteSystemError)
             return new Response(JSON.stringify({ error: '시스템 삭제 실패', details: deleteSystemError.message }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 500,
