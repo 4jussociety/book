@@ -98,30 +98,11 @@ Deno.serve(async (req: Request) => {
         const memberEmail = email.toLowerCase().trim()
 
         // 이미 등록된 이메일인지 먼저 확인
-        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-        const existingUser = existingUsers?.users?.find(
-            (u: any) => u.email?.toLowerCase() === memberEmail
-        )
+        // listUsers() 는 권한/타임아웃 이슈나 대규모 DB에서 401/500 에러를 유발할 수 있으므로,
+        // createUser 에러 코드를 확인하거나 안전한 get 방식 사용 권장 (여기서는 DB 뷰를 통해 확인)
+        let newUserId = null
 
-        if (existingUser) {
-            // 이미 다른 시스템에 소속되어 있는지 확인
-            const { data: existingMember } = await supabaseAdmin
-                .from('system_members')
-                .select('system_id')
-                .eq('user_id', existingUser.id)
-                .eq('status', 'approved')
-                .maybeSingle()
-
-            if (existingMember) {
-                return new Response(JSON.stringify({
-                    error: '이미 다른 시스템에 등록된 이메일입니다. 한 이메일은 하나의 시스템에만 소속될 수 있습니다.'
-                }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                    status: 400,
-                })
-            }
-        }
-
+        // 1. auth.users 뷰 또는 profiles 접근 (단, profiles 생성 전일수도 있으니 createUser 먼저 시도 후 에러 핸들링하는 로직이 가장 안전합니다.)
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: memberEmail,
             password: password,
@@ -129,21 +110,72 @@ Deno.serve(async (req: Request) => {
             user_metadata: { full_name: name }
         })
 
-        if (authError || !authData.user) {
-            console.error('Auth creation error:', authError)
-            if (authError?.message?.includes('already registered')) {
-                return new Response(JSON.stringify({ error: '이미 등록된 이메일입니다. 다른 이메일을 입력해주세요.' }), {
+        if (authError) {
+            // "User already registered" 에러인 경우 기존 유저 정보 연동 시도
+            if (authError.message.includes('already registered')) {
+                console.log('User already exists, attempting to relink member:', memberEmail)
+
+                // profiles 테이블에서 이메일로 검색
+                const { data: existingUserObj } = await supabaseAdmin
+                    .from('profiles')
+                    .select('id')
+                    .eq('email', memberEmail)
+                    .maybeSingle()
+
+                let existingUserId = existingUserObj?.id;
+
+                if (!existingUserId) {
+                    // fallback: admin API로 검색
+                    const { data: exactUser } = await supabaseAdmin.auth.admin.listUsers()
+                    const foundUser = exactUser?.users?.find((u: any) => u.email?.toLowerCase() === memberEmail)
+                    if (foundUser) existingUserId = foundUser.id
+                }
+
+                if (existingUserId) {
+                    // 같은 시스템에 이미 등록되어 있는지만 확인 (다중 시스템 허용)
+                    const { data: existingMember } = await supabaseAdmin
+                        .from('system_members')
+                        .select('system_id')
+                        .eq('user_id', existingUserId)
+                        .eq('system_id', systemId)
+                        .eq('status', 'approved')
+                        .maybeSingle()
+
+                    if (existingMember) {
+                        return new Response(JSON.stringify({
+                            error: '이 멤버는 이미 현재 시스템에 등록되어 있습니다.'
+                        }), {
+                            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                            status: 400,
+                        })
+                    }
+
+                    // 기존 계정 재사용 (비밀번호/이름 업데이트)
+                    newUserId = existingUserId
+                    await supabaseAdmin.auth.admin.updateUserById(newUserId, { password: password, user_metadata: { full_name: name } })
+                } else {
+                    return new Response(JSON.stringify({ error: '등록된 유저 정보를 DB에서 불러오는 데 문제가 발생했습니다.' }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                        status: 500,
+                    })
+                }
+
+            } else {
+                console.error('Auth creation error:', authError)
+                return new Response(JSON.stringify({ error: authError?.message || '사용자 생성에 실패했습니다.' }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                     status: 400,
                 })
             }
-            return new Response(JSON.stringify({ error: authError?.message || '사용자 생성에 실패했습니다.' }), {
+        } else if (authData?.user) {
+            // 새 계정 생성 성공
+            newUserId = authData.user.id
+        } else {
+            return new Response(JSON.stringify({ error: '사용자 생성 응답 형식이 올바르지 않습니다.' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 400,
+                status: 500,
             })
         }
-
-        const newUserId = authData.user.id
 
         // 5. Explicitly wait/retry to allow Postgres triggers (auth -> profiles) to complete
         // In some cases, updating the profile instantly fails if the trigger hasn't finished.
@@ -177,7 +209,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // 7. Success
-        return new Response(JSON.stringify({ success: true, user: authData.user }), {
+        return new Response(JSON.stringify({ success: true, user: { id: newUserId } }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         })

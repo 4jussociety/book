@@ -348,6 +348,26 @@ export default function ManagerPage() {
                                 placeholder="예: 02-1234-5678"
                                 className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                         </Field>
+
+                        {/* 스케줄 번호 (읽기 전용) */}
+                        <Field label="스케줄 번호 (직원 로그인용)" hint="직원이 로그인할 때 입력해야 하는 6자리 번호입니다. 직원에게 전달해주세요.">
+                            <div className="flex items-center gap-2">
+                                <input type="text" readOnly value={profile?.schedule_code || '(미생성)'}
+                                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-900 border border-gray-200 rounded-xl font-mono text-xl font-black tracking-[0.3em] text-center cursor-default" />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (profile?.schedule_code) {
+                                            navigator.clipboard.writeText(profile.schedule_code)
+                                            alert('스케줄 번호가 복사되었습니다!')
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-200 transition-colors whitespace-nowrap"
+                                >
+                                    복사
+                                </button>
+                            </div>
+                        </Field>
                     </div>
 
                     <div className="mt-6 flex justify-end">

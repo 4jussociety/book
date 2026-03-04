@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS systems (
     default_session_name VARCHAR(255) DEFAULT '매뉴얼PT', -- 기본 수업 종류명
     option1_name TEXT DEFAULT NULL,                  -- 옵션1 수업 종류명
     option2_name TEXT DEFAULT NULL,                  -- 옵션2 수업 종류명
-    option3_name TEXT DEFAULT NULL                   -- 옵션3 수업 종류명
+    option3_name TEXT DEFAULT NULL,                  -- 옵션3 수업 종류명
+    schedule_code CHAR(6) UNIQUE                     -- 멤버 로그인용 6자리 스케줄 코드
 );
 -- 기존 DB 호환: 컬럼이 없으면 추가
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS organization_name TEXT;
@@ -66,6 +67,29 @@ ALTER TABLE systems ADD COLUMN IF NOT EXISTS default_session_name VARCHAR(255) D
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option1_name TEXT DEFAULT NULL;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option2_name TEXT DEFAULT NULL;
 ALTER TABLE systems ADD COLUMN IF NOT EXISTS option3_name TEXT DEFAULT NULL;
+ALTER TABLE systems ADD COLUMN IF NOT EXISTS schedule_code CHAR(6) UNIQUE;
+
+-- 6자리 스케줄 코드 자동 생성 함수
+CREATE OR REPLACE FUNCTION generate_schedule_code()
+RETURNS TRIGGER AS $$
+DECLARE
+    new_code CHAR(6);
+BEGIN
+    IF NEW.schedule_code IS NULL OR NEW.schedule_code = '' THEN
+        LOOP
+            new_code := lpad(floor(random() * 1000000)::text, 6, '0');
+            EXIT WHEN NOT EXISTS (SELECT 1 FROM systems WHERE schedule_code = new_code);
+        END LOOP;
+        NEW.schedule_code := new_code;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_generate_schedule_code ON systems;
+CREATE TRIGGER tr_generate_schedule_code
+BEFORE INSERT ON systems
+FOR EACH ROW EXECUTE FUNCTION generate_schedule_code();
 
 -- ──────────────────────────────────────────────
 -- (2) profiles: 사용자(선생님/스태프) 프로필

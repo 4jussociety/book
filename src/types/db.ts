@@ -13,6 +13,7 @@ export type Profile = {
 
     // DB에는 없지만 Context에서 조인/주입되어 사용되는 런타임 속성
     system_id?: string | null
+    schedule_code?: string
     role?: 'owner' | 'staff' | 'instructor' | 'pending_manager'
     is_owner?: boolean
     organization_name?: string
@@ -41,6 +42,7 @@ export type System = {
     contact_number: string | null
     manager_name: string | null
     last_client_no: number
+    schedule_code?: string | null
     option1_name?: string | null
     option2_name?: string | null
     option3_name?: string | null

@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react'
 const loginSchema = z.object({
     id: z.string().min(1, '아이디 또는 이메일을 입력해주세요.'),
     password: z.string().min(1, '비밀번호를 입력해주세요.'),
+    scheduleCode: z.string().optional(),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -54,6 +55,17 @@ export default function LoginPage() {
         }
         // 직원(멤버) 탭: 입력값 그대로 사용 (실제 이메일)
 
+        // 멤버 로그인 시 스케줄 코드 검증 및 저장
+        if (activeTab === 'member') {
+            const code = data.scheduleCode?.trim()
+            if (!code || code.length !== 6) {
+                setError('6자리 스케줄 번호를 입력해주세요.')
+                return
+            }
+            // 스케줄 코드를 localStorage에 저장 → AuthProvider에서 사용
+            localStorage.setItem('schedule_code', code)
+        }
+
         try {
             const { error: authError } = await supabase.auth.signInWithPassword({
                 email: emailToLogin,
@@ -67,10 +79,13 @@ export default function LoginPage() {
                 } else {
                     setError('로그인 중 문제가 발생했습니다. 매니저에게 문의해주세요.')
                 }
+                // 로그인 실패 시 저장한 스케줄 코드 제거
+                if (activeTab === 'member') localStorage.removeItem('schedule_code')
             }
         } catch (err) {
             console.error('Login exception:', err)
             setError('알 수 없는 오류가 발생했습니다.')
+            if (activeTab === 'member') localStorage.removeItem('schedule_code')
         }
     }
 
@@ -108,6 +123,25 @@ export default function LoginPage() {
                 )}
 
                 <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-6">
+                    {/* 멤버 탭: 스케줄 번호 입력 */}
+                    {activeTab === 'member' && (
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                스케줄 번호
+                            </label>
+                            <input
+                                {...register('scheduleCode')}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-center text-2xl font-bold tracking-[0.3em] placeholder-gray-300"
+                                placeholder="000000"
+                                autoComplete="off"
+                            />
+                            <p className="text-xs text-gray-400 mt-1.5 ml-1">매니저에게 전달받은 6자리 번호</p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                             {activeTab === 'member' ? '이메일' : '매니저 아이디'}

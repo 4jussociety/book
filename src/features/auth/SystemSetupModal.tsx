@@ -26,6 +26,9 @@ export default function SystemSetupModal() {
         setError(null)
 
         try {
+            // 6자리 스케줄 코드 생성 (DB 트리거로도 생성되지만, 클라이언트에서도 전달)
+            const scheduleCode = String(Math.floor(100000 + Math.random() * 900000))
+
             // 시스템 생성
             let system = null
             const { data, error: insertError } = await supabase
@@ -33,6 +36,7 @@ export default function SystemSetupModal() {
                 .insert({
                     name: `${user.user_metadata?.full_name || user.email?.split('@')[0] || '센터장'}님의 시스템`,
                     owner_id: user.id,
+                    schedule_code: scheduleCode,
                 })
                 .select()
                 .single()
@@ -101,6 +105,8 @@ export default function SystemSetupModal() {
                     console.warn('선생님 자동 발급 중 예외 (시스템 생성은 정상):', autoMemberErr)
                 }
             }
+            // 스케줄 코드를 로컬에 저장 (성공 화면에 표시용)
+            localStorage.setItem('last_schedule_code', system.schedule_code || scheduleCode)
 
             setIsSystemCreated(true)
 
@@ -127,10 +133,23 @@ export default function SystemSetupModal() {
                     </div>
 
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">시스템 개설 완료!</h2>
-                    <p className="text-gray-500 mb-6 leading-relaxed">
+                    <p className="text-gray-500 mb-4 leading-relaxed">
                         이제부터 새로운 스케줄 관리와<br />
                         고객 관리를 시작할 수 있습니다.
                     </p>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                        <p className="text-xs text-blue-500 font-bold mb-1">직원 로그인용 스케줄 번호</p>
+                        <p className="text-3xl font-black text-blue-700 tracking-[0.3em] font-mono">
+                            {/* system data에서 schedule_code 가져오기 */}
+                            {localStorage.getItem('last_schedule_code') || '------'}
+                        </p>
+                        <p className="text-xs text-blue-400 mt-2">
+                            이 번호를 직원들에게 전달해주세요.<br />
+                            매니저 설정 페이지에서도 확인할 수 있습니다.
+                        </p>
+                    </div>
+
                     <p className="text-xs text-gray-400 mb-6">
                         3초 후 자동으로 메인 페이지로 이동합니다...
                     </p>

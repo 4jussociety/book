@@ -36,12 +36,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const combinedProfile = baseProfile || { id: userId, full_name: userEmail?.split('@')[0] || '' } as Profile
             if (phoneValue) combinedProfile.phone = phoneValue
 
-            // 2. Fetch system_members (replacement for guest_access)
-            const { data: memberData } = await supabase
+            // 2. Fetch system_members — 스케줄 코드 기반으로 시스템 특정
+            const savedScheduleCode = localStorage.getItem('schedule_code')
+            let targetSystemId: string | null = null
+
+            if (savedScheduleCode) {
+                // 멤버 로그인: 스케줄 코드로 시스템 찾기
+                const { data: systemByCode } = await supabase
+                    .from('systems')
+                    .select('id')
+                    .eq('schedule_code', savedScheduleCode)
+                    .maybeSingle()
+                if (systemByCode) targetSystemId = systemByCode.id
+            }
+
+            // 멤버십 조회 (스케줄 코드가 있으면 해당 시스템만, 없으면 아무거나 하나)
+            let memberQuery = supabase
                 .from('system_members')
                 .select('system_id, role, status')
                 .eq('user_id', userId)
-                .maybeSingle()
+
+            if (targetSystemId) {
+                memberQuery = memberQuery.eq('system_id', targetSystemId)
+            }
+
+            const { data: memberData } = await memberQuery.maybeSingle()
 
             if (memberData) {
                 setGuestStatus(memberData.status as GuestStatus)
@@ -52,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // 3. Fetch system details to inject settings into profile
                     const { data: systemData, error: sysError } = await supabase
                         .from('systems')
-                        .select('owner_id, organization_name, contact_number, manager_name, option1_name, option2_name, option3_name, option4_name')
+                        .select('owner_id, organization_name, contact_number, manager_name, schedule_code, option1_name, option2_name, option3_name, option4_name')
                         .eq('id', memberData.system_id)
                         .maybeSingle()
 
@@ -86,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         combinedProfile.organization_name = systemData.organization_name || undefined
                         combinedProfile.contact_number = systemData.contact_number || undefined
                         combinedProfile.manager_name = systemData.manager_name || undefined
+                        combinedProfile.schedule_code = systemData.schedule_code || undefined
                         combinedProfile.option1_name = systemData.option1_name || undefined
                         combinedProfile.option2_name = systemData.option2_name || undefined
                         combinedProfile.option3_name = systemData.option3_name || undefined
